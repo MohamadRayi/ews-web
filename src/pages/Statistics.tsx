@@ -112,7 +112,7 @@ const generateHourlyWaterData = (date: Date) => {
   ];
 };
 
-// Mock 10-minute data for when zoomed in
+// Generate 10-minute interval data for 24 hours (full day)
 const generateTenMinuteWaterData = (date: Date) => {
   const day = date.getDate();
   const baseLevel1 = 40 + (day % 8); // Base level for sensor 1
@@ -120,15 +120,25 @@ const generateTenMinuteWaterData = (date: Date) => {
   
   const data = [];
   
-  for (let hour = 10; hour <= 11; hour++) {
+  // Generate data for all 24 hours
+  for (let hour = 0; hour < 24; hour++) {
     for (let minute = 0; minute < 60; minute += 10) {
-      const variation1 = Math.sin(minute * 0.1) * 1.5;
-      const variation2 = Math.cos(minute * 0.1) * 1.5;
+      const timeOfDay = hour / 24; // 0-1 representing time of day
+      
+      // Create some realistic variations throughout the day
+      const timeVariation = Math.sin(timeOfDay * Math.PI * 2) * 5;
+      
+      // Small random variations for each 10 minute interval
+      const variation1 = Math.sin(minute * 0.1) * 1.5 + timeVariation;
+      const variation2 = Math.cos(minute * 0.1) * 1.5 + timeVariation;
+      
+      const hourString = hour.toString().padStart(2, '0');
+      const minuteString = minute.toString().padStart(2, '0');
       
       data.push({
-        time: `${hour}:${minute.toString().padStart(2, '0')}`,
-        sensor1: +(baseLevel1 + variation1 + (hour - 10) * 0.2).toFixed(1),
-        sensor2: +(baseLevel2 + variation2 + (hour - 10) * 0.2).toFixed(1)
+        time: `${hourString}:${minuteString}`,
+        sensor1: +(baseLevel1 + variation1).toFixed(1),
+        sensor2: +(baseLevel2 + variation2).toFixed(1)
       });
     }
   }

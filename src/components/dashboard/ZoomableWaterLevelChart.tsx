@@ -37,6 +37,7 @@ const ZoomableWaterLevelChart = ({
 
   const handleZoomIn = () => {
     setZoomed(true);
+    setStartIndex(0); // Reset scroll position when zooming in
   };
 
   const handleZoomOut = () => {
@@ -48,24 +49,25 @@ const ZoomableWaterLevelChart = ({
   const currentData = zoomed ? tenMinuteData : hourlyData;
 
   // For scrollable view - determine visible data window
-  const visibleDataCount = 8; // Number of data points to show at once when zoomed
+  // Show more data points when zoomed out (hourly) vs zoomed in (10 min)
+  const visibleDataCount = zoomed ? 8 : 12; 
   
-  const visibleData = scrollable && zoomed 
+  const visibleData = scrollable 
     ? currentData.slice(startIndex, startIndex + visibleDataCount)
     : currentData;
 
   const canScrollLeft = startIndex > 0;
-  const canScrollRight = zoomed && startIndex + visibleDataCount < currentData.length;
+  const canScrollRight = startIndex + visibleDataCount < currentData.length;
 
   const handleScrollLeft = () => {
     if (canScrollLeft) {
-      setStartIndex(Math.max(0, startIndex - 1));
+      setStartIndex(Math.max(0, startIndex - Math.floor(visibleDataCount / 2)));
     }
   };
 
   const handleScrollRight = () => {
     if (canScrollRight) {
-      setStartIndex(Math.min(currentData.length - visibleDataCount, startIndex + 1));
+      setStartIndex(Math.min(currentData.length - visibleDataCount, startIndex + Math.floor(visibleDataCount / 2)));
     }
   };
 
@@ -82,6 +84,7 @@ const ZoomableWaterLevelChart = ({
             size="icon" 
             onClick={handleZoomIn} 
             disabled={zoomed}
+            title="Zoom ke data 10 menit"
           >
             <ZoomIn className="h-4 w-4" />
           </Button>
@@ -90,6 +93,7 @@ const ZoomableWaterLevelChart = ({
             size="icon" 
             onClick={handleZoomOut}
             disabled={!zoomed}
+            title="Zoom ke data jam"
           >
             <ZoomOut className="h-4 w-4" />
           </Button>
@@ -100,6 +104,7 @@ const ZoomableWaterLevelChart = ({
                 size="icon"
                 onClick={handleScrollLeft}
                 disabled={!canScrollLeft}
+                title="Geser ke kiri"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -108,6 +113,7 @@ const ZoomableWaterLevelChart = ({
                 size="icon"
                 onClick={handleScrollRight}
                 disabled={!canScrollRight}
+                title="Geser ke kanan"
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
