@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -220,7 +219,7 @@ const History = () => {
                 <SelectValue placeholder="Pilih lokasi" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Semua Lokasi</SelectItem>
+                <SelectItem value="all">Semua Lokasi</SelectItem>
                 <SelectItem value="Jakarta Barat">Jakarta Barat</SelectItem>
                 <SelectItem value="Jakarta Timur">Jakarta Timur</SelectItem>
               </SelectContent>
@@ -234,7 +233,7 @@ const History = () => {
                 <SelectValue placeholder="Pilih status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Semua Status</SelectItem>
+                <SelectItem value="all">Semua Status</SelectItem>
                 <SelectItem value="normal">Normal</SelectItem>
                 <SelectItem value="warning">Waspada</SelectItem>
                 <SelectItem value="siaga">Siaga</SelectItem>
