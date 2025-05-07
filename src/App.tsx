@@ -28,8 +28,7 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/specifications" element={<Specifications />} />
             <Route path="/telegram" element={<Telegram />} />
-            <Route path="/history" element={<History />} />
-            <Route path="/statistics" element={<Statistics />} />
+            <Route path="/history" element={<Statistics />} />
             <Route path="/sensor/:id" element={<SensorDetail />} />
           </Route>
           <Route path="*" element={<NotFound />} />

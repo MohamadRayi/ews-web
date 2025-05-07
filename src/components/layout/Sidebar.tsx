@@ -35,11 +35,6 @@ const navItems: NavItem[] = [
     title: "Riwayat",
     path: "/history",
     icon: <List className="h-5 w-5" />
-  },
-  {
-    title: "Riwayat",
-    path: "/statistics",
-    icon: <BarChart className="h-5 w-5" />
   }
 ];
 
