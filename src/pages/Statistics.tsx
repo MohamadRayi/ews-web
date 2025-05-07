@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
@@ -322,31 +321,33 @@ const Statistics = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-80 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <LineChart
-                    data={dailyData}
-                    margin={{
-                      top: 5,
-                      right: 30,
-                      left: 20,
-                      bottom: 5,
-                    }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="time" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Line 
-                      type="monotone" 
-                      dataKey="level" 
-                      stroke="#0EA5E9" 
-                      activeDot={{ r: 8 }} 
-                      name="Tinggi Air (cm)"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+              <div className="overflow-x-auto">
+                <div className="h-80 min-w-[700px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                      data={dailyData}
+                      margin={{
+                        top: 5,
+                        right: 30,
+                        left: 20,
+                        bottom: 5,
+                      }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="time" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Line 
+                        type="monotone" 
+                        dataKey="level" 
+                        stroke="#0EA5E9" 
+                        activeDot={{ r: 8 }} 
+                        name="Tinggi Air (cm)"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -376,27 +377,29 @@ const Statistics = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="h-80 w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={statusData}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                      >
-                        {statusData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                      <Legend />
-                    </PieChart>
-                  </ResponsiveContainer>
+                <div className="overflow-x-auto">
+                  <div className="h-80 min-w-[700px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={statusData}
+                          cx="50%"
+                          cy="50%"
+                          labelLine={false}
+                          outerRadius={80}
+                          fill="#8884d8"
+                          dataKey="value"
+                          label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        >
+                          {statusData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                        <Legend />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -468,28 +471,30 @@ const Statistics = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="h-80 w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={locationData}
-                    margin={{
-                      top: 20,
-                      right: 30,
-                      left: 20,
-                      bottom: 5,
-                    }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="normalHours" name="Normal (jam)" stackId="a" fill="#10B981" />
-                    <Bar dataKey="warningHours" name="Waspada (jam)" stackId="a" fill="#FBBF24" />
-                    <Bar dataKey="siagaHours" name="Siaga (jam)" stackId="a" fill="#F97316" />
-                    <Bar dataKey="dangerHours" name="Bahaya (jam)" stackId="a" fill="#EF4444" />
-                  </BarChart>
-                </ResponsiveContainer>
+              <div className="overflow-x-auto">
+                <div className="h-80 min-w-[700px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={locationData}
+                      margin={{
+                        top: 20,
+                        right: 30,
+                        left: 20,
+                        bottom: 5,
+                      }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="normalHours" name="Normal (jam)" stackId="a" fill="#10B981" />
+                      <Bar dataKey="warningHours" name="Waspada (jam)" stackId="a" fill="#FBBF24" />
+                      <Bar dataKey="siagaHours" name="Siaga (jam)" stackId="a" fill="#F97316" />
+                      <Bar dataKey="dangerHours" name="Bahaya (jam)" stackId="a" fill="#EF4444" />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
               </div>
             </CardContent>
           </Card>

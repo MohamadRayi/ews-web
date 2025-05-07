@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
@@ -105,6 +104,7 @@ const ZoomableWaterLevelChart = ({
                 onClick={handleScrollLeft}
                 disabled={!canScrollLeft}
                 title="Geser ke kiri"
+                className="hidden md:flex"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
@@ -114,6 +114,7 @@ const ZoomableWaterLevelChart = ({
                 onClick={handleScrollRight}
                 disabled={!canScrollRight}
                 title="Geser ke kanan"
+                className="hidden md:flex"
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -122,34 +123,36 @@ const ZoomableWaterLevelChart = ({
         </div>
       </CardHeader>
       <CardContent className="pt-2">
-        <div className="h-80 w-full" ref={chartRef}>
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart
-              data={visibleData}
-              margin={{
-                top: 10,
-                right: 30,
-                left: 0,
-                bottom: 0,
-              }}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="time" />
-              <YAxis />
-              <Tooltip />
-              <Legend />
-              {sensors.map((sensor) => (
-                <Line 
-                  key={sensor.id}
-                  type="monotone" 
-                  dataKey={sensor.id}
-                  name={sensor.name} 
-                  stroke={sensor.color} 
-                  activeDot={{ r: 8 }} 
-                />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
+        <div className="overflow-x-auto">
+          <div className="h-80 min-w-[700px]" ref={chartRef}>
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart
+                data={visibleData}
+                margin={{
+                  top: 10,
+                  right: 30,
+                  left: 0,
+                  bottom: 0,
+                }}
+              >
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="time" />
+                <YAxis />
+                <Tooltip />
+                <Legend />
+                {sensors.map((sensor) => (
+                  <Line 
+                    key={sensor.id}
+                    type="monotone" 
+                    dataKey={sensor.id}
+                    name={sensor.name} 
+                    stroke={sensor.color} 
+                    activeDot={{ r: 8 }} 
+                  />
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         </div>
         <div className="mt-4 flex items-center justify-center space-x-6">
           {sensors.map((sensor) => (
