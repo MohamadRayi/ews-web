@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -69,7 +70,7 @@ const initialHistoryData = [
   {
     id: "7",
     sensorName: "Sensor Jembatan Merah",
-    status: "offline" as const,
+    status: "danger" as const,
     location: "Sungai Ciliwung, Jakarta Barat",
     date: "2023-05-05",
     time: "22:15:10",
@@ -114,21 +115,21 @@ const hourlyWaterData = [
   { time: "23:00", sensor1: 34, sensor2: 39 }
 ];
 
-// Mock minutely data for when zoomed in
-const minutelyWaterData = [
-  { time: "10:00", sensor1: 43, sensor2: 48 },
-  { time: "10:05", sensor1: 43.2, sensor2: 48.1 },
-  { time: "10:10", sensor1: 43.4, sensor2: 48.2 },
-  { time: "10:15", sensor1: 43.5, sensor2: 48.3 },
-  { time: "10:20", sensor1: 43.6, sensor2: 48.4 },
-  { time: "10:25", sensor1: 43.7, sensor2: 48.5 },
-  { time: "10:30", sensor1: 43.8, sensor2: 48.6 },
-  { time: "10:35", sensor1: 43.9, sensor2: 48.7 },
-  { time: "10:40", sensor1: 44, sensor2: 48.8 },
-  { time: "10:45", sensor1: 44.1, sensor2: 48.9 },
-  { time: "10:50", sensor1: 44.2, sensor2: 49 },
-  { time: "10:55", sensor1: 44.3, sensor2: 49.1 },
-  { time: "11:00", sensor1: 44, sensor2: 49 }
+// Updated 10-minute data for when zoomed in (instead of minutely data)
+const tenMinuteWaterData = [
+  { time: "10:00", sensor1: 43.0, sensor2: 48.0 },
+  { time: "10:10", sensor1: 43.2, sensor2: 48.1 },
+  { time: "10:20", sensor1: 43.4, sensor2: 48.2 },
+  { time: "10:30", sensor1: 43.6, sensor2: 48.4 },
+  { time: "10:40", sensor1: 43.8, sensor2: 48.6 },
+  { time: "10:50", sensor1: 44.0, sensor2: 48.8 },
+  { time: "11:00", sensor1: 44.2, sensor2: 49.0 },
+  { time: "11:10", sensor1: 44.3, sensor2: 49.1 },
+  { time: "11:20", sensor1: 44.4, sensor2: 49.2 },
+  { time: "11:30", sensor1: 44.5, sensor2: 49.3 },
+  { time: "11:40", sensor1: 44.6, sensor2: 49.4 },
+  { time: "11:50", sensor1: 44.7, sensor2: 49.5 },
+  { time: "12:00", sensor1: 45.0, sensor2: 50.0 }
 ];
 
 const History = () => {
@@ -175,13 +176,14 @@ const History = () => {
       <div className="mb-6">
         <ZoomableWaterLevelChart
           hourlyData={hourlyWaterData}
-          minutelyData={minutelyWaterData}
+          tenMinuteData={tenMinuteWaterData}
           title="Riwayat Ketinggian Air"
-          description="Data ketinggian air per jam/menit"
+          description="Data ketinggian air per jam/10 menit"
           sensors={[
             { id: "sensor1", name: "Sensor Jembatan Merah", color: "#0EA5E9" },
             { id: "sensor2", name: "Sensor Kampung Pulo", color: "#10B981" }
           ]}
+          scrollable={true}
         />
       </div>
       
@@ -207,6 +209,7 @@ const History = () => {
                   mode="single"
                   selected={date}
                   onSelect={setDate}
+                  className="pointer-events-auto"
                 />
               </PopoverContent>
             </Popover>
@@ -238,7 +241,6 @@ const History = () => {
                 <SelectItem value="warning">Waspada</SelectItem>
                 <SelectItem value="siaga">Siaga</SelectItem>
                 <SelectItem value="danger">Bahaya</SelectItem>
-                <SelectItem value="offline">Offline</SelectItem>
               </SelectContent>
             </Select>
           </div>

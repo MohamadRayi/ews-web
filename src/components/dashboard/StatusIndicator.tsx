@@ -2,7 +2,7 @@
 import { cn } from "@/lib/utils";
 
 interface StatusIndicatorProps {
-  status: "normal" | "warning" | "siaga" | "danger" | "offline";
+  status: "normal" | "warning" | "siaga" | "danger";
   pulseAnimation?: boolean;
 }
 
@@ -16,10 +16,8 @@ const StatusIndicator = ({ status, pulseAnimation = true }: StatusIndicatorProps
       case "siaga":
         return "bg-orange-500";
       case "danger":
-        return "bg-ews-red";
-      case "offline":
       default:
-        return "bg-ews-gray";
+        return "bg-ews-red";
     }
   };
 
@@ -32,10 +30,8 @@ const StatusIndicator = ({ status, pulseAnimation = true }: StatusIndicatorProps
       case "siaga":
         return "Siaga";
       case "danger":
-        return "Bahaya";
-      case "offline":
       default:
-        return "Offline";
+        return "Bahaya";
     }
   };
 

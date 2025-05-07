@@ -3,7 +3,7 @@ import { useState, useRef } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Button } from "@/components/ui/button";
-import { ZoomIn, ZoomOut } from "lucide-react";
+import { ZoomIn, ZoomOut, ChevronLeft, ChevronRight } from "lucide-react";
 
 interface DataPoint {
   time: string;
@@ -12,9 +12,10 @@ interface DataPoint {
 
 interface ZoomableWaterLevelChartProps {
   hourlyData: DataPoint[];
-  minutelyData: DataPoint[];
+  tenMinuteData: DataPoint[];
   title: string;
   description?: string;
+  scrollable?: boolean;
   sensors: Array<{
     id: string;
     name: string;
@@ -24,12 +25,14 @@ interface ZoomableWaterLevelChartProps {
 
 const ZoomableWaterLevelChart = ({ 
   hourlyData, 
-  minutelyData, 
+  tenMinuteData, 
   title, 
   description, 
-  sensors 
+  sensors,
+  scrollable = false
 }: ZoomableWaterLevelChartProps) => {
   const [zoomed, setZoomed] = useState(false);
+  const [startIndex, setStartIndex] = useState(0);
   const chartRef = useRef<HTMLDivElement>(null);
 
   const handleZoomIn = () => {
@@ -38,9 +41,33 @@ const ZoomableWaterLevelChart = ({
 
   const handleZoomOut = () => {
     setZoomed(false);
+    setStartIndex(0); // Reset scroll position when zooming out
   };
 
-  const currentData = zoomed ? minutelyData : hourlyData;
+  // Data to display based on zoom state
+  const currentData = zoomed ? tenMinuteData : hourlyData;
+
+  // For scrollable view - determine visible data window
+  const visibleDataCount = 8; // Number of data points to show at once when zoomed
+  
+  const visibleData = scrollable && zoomed 
+    ? currentData.slice(startIndex, startIndex + visibleDataCount)
+    : currentData;
+
+  const canScrollLeft = startIndex > 0;
+  const canScrollRight = zoomed && startIndex + visibleDataCount < currentData.length;
+
+  const handleScrollLeft = () => {
+    if (canScrollLeft) {
+      setStartIndex(Math.max(0, startIndex - 1));
+    }
+  };
+
+  const handleScrollRight = () => {
+    if (canScrollRight) {
+      setStartIndex(Math.min(currentData.length - visibleDataCount, startIndex + 1));
+    }
+  };
 
   return (
     <Card className="col-span-4">
@@ -66,13 +93,33 @@ const ZoomableWaterLevelChart = ({
           >
             <ZoomOut className="h-4 w-4" />
           </Button>
+          {scrollable && (
+            <>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleScrollLeft}
+                disabled={!canScrollLeft}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={handleScrollRight}
+                disabled={!canScrollRight}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </>
+          )}
         </div>
       </CardHeader>
       <CardContent className="pt-2">
         <div className="h-80 w-full" ref={chartRef}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
-              data={currentData}
+              data={visibleData}
               margin={{
                 top: 10,
                 right: 30,

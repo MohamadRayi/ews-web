@@ -1,41 +1,70 @@
+
+import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format, subDays } from "date-fns";
+import { CalendarIcon } from "lucide-react";
+import { cn } from "@/lib/utils";
 import ZoomableWaterLevelChart from "@/components/dashboard/ZoomableWaterLevelChart";
 
 // Mock data for statistics
-const dailyData = [
-  { date: "01", level: 32 },
-  { date: "02", level: 38 },
-  { date: "03", level: 45 },
-  { date: "04", level: 50 },
-  { date: "05", level: 42 },
-  { date: "06", level: 30 },
-  { date: "07", level: 25 },
-  { date: "08", level: 22 },
-  { date: "09", level: 35 },
-  { date: "10", level: 40 },
-  { date: "11", level: 48 },
-  { date: "12", level: 52 },
-  { date: "13", level: 45 },
-  { date: "14", level: 40 },
-  { date: "15", level: 38 },
-  { date: "16", level: 42 },
-  { date: "17", level: 46 },
-  { date: "18", level: 50 },
-  { date: "19", level: 48 },
-  { date: "20", level: 45 },
-  { date: "21", level: 40 },
-  { date: "22", level: 35 },
-  { date: "23", level: 30 },
-  { date: "24", level: 28 },
-  { date: "25", level: 32 },
-  { date: "26", level: 36 },
-  { date: "27", level: 40 },
-  { date: "28", level: 44 },
-  { date: "29", level: 46 },
-  { date: "30", level: 48 },
-];
+const generateDailyData = (date: Date) => {
+  // Generate mock data based on the selected date
+  const day = date.getDate();
+  const baseLevel = 30 + (day % 10); // Use the day to vary the base level
+  
+  return [
+    { time: "00:00", level: baseLevel },
+    { time: "01:00", level: baseLevel + 2 },
+    { time: "02:00", level: baseLevel + 4 },
+    { time: "03:00", level: baseLevel + 6 },
+    { time: "04:00", level: baseLevel + 5 },
+    { time: "05:00", level: baseLevel + 3 },
+    { time: "06:00", level: baseLevel + 2 },
+    { time: "07:00", level: baseLevel + 5 },
+    { time: "08:00", level: baseLevel + 8 },
+    { time: "09:00", level: baseLevel + 10 },
+    { time: "10:00", level: baseLevel + 13 },
+    { time: "11:00", level: baseLevel + 15 },
+    { time: "12:00", level: baseLevel + 14 },
+    { time: "13:00", level: baseLevel + 12 },
+    { time: "14:00", level: baseLevel + 10 },
+    { time: "15:00", level: baseLevel + 12 },
+    { time: "16:00", level: baseLevel + 14 },
+    { time: "17:00", level: baseLevel + 16 },
+    { time: "18:00", level: baseLevel + 15 },
+    { time: "19:00", level: baseLevel + 13 },
+    { time: "20:00", level: baseLevel + 10 },
+    { time: "21:00", level: baseLevel + 8 },
+    { time: "22:00", level: baseLevel + 5 },
+    { time: "23:00", level: baseLevel + 3 }
+  ];
+};
+
+// Generate data for entire month
+const generateMonthlyData = () => {
+  const today = new Date();
+  const data = [];
+  
+  for (let i = 29; i >= 0; i--) {
+    const date = subDays(today, i);
+    const day = date.getDate().toString().padStart(2, '0');
+    const baseLevel = 30 + Math.sin(i * 0.3) * 10; // Create some variety
+    
+    data.push({
+      date: day,
+      level: Math.round(baseLevel + Math.random() * 5) // Add some randomness
+    });
+  }
+  
+  return data;
+};
+
+const monthlyData = generateMonthlyData();
 
 const statusData = [
   { name: "Normal", value: 68 },
@@ -50,56 +79,110 @@ const locationData = [
 ];
 
 // Mock hourly data for the zoomable chart
-const hourlyWaterData = [
-  { time: "00:00", sensor1: 32, sensor2: 38 },
-  { time: "01:00", sensor1: 35, sensor2: 40 },
-  { time: "02:00", sensor1: 34, sensor2: 39 },
-  { time: "03:00", sensor1: 31, sensor2: 37 },
-  { time: "04:00", sensor1: 30, sensor2: 36 },
-  { time: "05:00", sensor1: 32, sensor2: 38 },
-  { time: "06:00", sensor1: 35, sensor2: 40 },
-  { time: "07:00", sensor1: 38, sensor2: 42 },
-  { time: "08:00", sensor1: 40, sensor2: 45 },
-  { time: "09:00", sensor1: 42, sensor2: 47 },
-  { time: "10:00", sensor1: 43, sensor2: 48 },
-  { time: "11:00", sensor1: 44, sensor2: 49 },
-  { time: "12:00", sensor1: 45, sensor2: 50 },
-  { time: "13:00", sensor1: 44, sensor2: 49 },
-  { time: "14:00", sensor1: 43, sensor2: 48 },
-  { time: "15:00", sensor1: 42, sensor2: 47 },
-  { time: "16:00", sensor1: 41, sensor2: 46 },
-  { time: "17:00", sensor1: 40, sensor2: 45 },
-  { time: "18:00", sensor1: 39, sensor2: 44 },
-  { time: "19:00", sensor1: 38, sensor2: 43 },
-  { time: "20:00", sensor1: 37, sensor2: 42 },
-  { time: "21:00", sensor1: 36, sensor2: 41 },
-  { time: "22:00", sensor1: 35, sensor2: 40 },
-  { time: "23:00", sensor1: 34, sensor2: 39 }
-];
+const generateHourlyWaterData = (date: Date) => {
+  const day = date.getDate();
+  const baseLevel1 = 30 + (day % 8); // Different base level for sensor 1
+  const baseLevel2 = 36 + (day % 10); // Different base level for sensor 2
+  
+  return [
+    { time: "00:00", sensor1: baseLevel1, sensor2: baseLevel2 },
+    { time: "01:00", sensor1: baseLevel1 + 3, sensor2: baseLevel2 + 2 },
+    { time: "02:00", sensor1: baseLevel1 + 2, sensor2: baseLevel2 + 1 },
+    { time: "03:00", sensor1: baseLevel1 - 1, sensor2: baseLevel2 - 1 },
+    { time: "04:00", sensor1: baseLevel1 - 2, sensor2: baseLevel2 - 2 },
+    { time: "05:00", sensor1: baseLevel1, sensor2: baseLevel2 },
+    { time: "06:00", sensor1: baseLevel1 + 3, sensor2: baseLevel2 + 2 },
+    { time: "07:00", sensor1: baseLevel1 + 6, sensor2: baseLevel2 + 4 },
+    { time: "08:00", sensor1: baseLevel1 + 8, sensor2: baseLevel2 + 7 },
+    { time: "09:00", sensor1: baseLevel1 + 10, sensor2: baseLevel2 + 9 },
+    { time: "10:00", sensor1: baseLevel1 + 11, sensor2: baseLevel2 + 10 },
+    { time: "11:00", sensor1: baseLevel1 + 12, sensor2: baseLevel2 + 11 },
+    { time: "12:00", sensor1: baseLevel1 + 13, sensor2: baseLevel2 + 12 },
+    { time: "13:00", sensor1: baseLevel1 + 12, sensor2: baseLevel2 + 11 },
+    { time: "14:00", sensor1: baseLevel1 + 11, sensor2: baseLevel2 + 10 },
+    { time: "15:00", sensor1: baseLevel1 + 10, sensor2: baseLevel2 + 9 },
+    { time: "16:00", sensor1: baseLevel1 + 9, sensor2: baseLevel2 + 8 },
+    { time: "17:00", sensor1: baseLevel1 + 8, sensor2: baseLevel2 + 7 },
+    { time: "18:00", sensor1: baseLevel1 + 7, sensor2: baseLevel2 + 6 },
+    { time: "19:00", sensor1: baseLevel1 + 6, sensor2: baseLevel2 + 5 },
+    { time: "20:00", sensor1: baseLevel1 + 5, sensor2: baseLevel2 + 4 },
+    { time: "21:00", sensor1: baseLevel1 + 4, sensor2: baseLevel2 + 3 },
+    { time: "22:00", sensor1: baseLevel1 + 3, sensor2: baseLevel2 + 2 },
+    { time: "23:00", sensor1: baseLevel1 + 2, sensor2: baseLevel2 + 1 }
+  ];
+};
 
-// Mock minutely data for when zoomed in
-const minutelyWaterData = [
-  { time: "10:00", sensor1: 43, sensor2: 48 },
-  { time: "10:05", sensor1: 43.2, sensor2: 48.1 },
-  { time: "10:10", sensor1: 43.4, sensor2: 48.2 },
-  { time: "10:15", sensor1: 43.5, sensor2: 48.3 },
-  { time: "10:20", sensor1: 43.6, sensor2: 48.4 },
-  { time: "10:25", sensor1: 43.7, sensor2: 48.5 },
-  { time: "10:30", sensor1: 43.8, sensor2: 48.6 },
-  { time: "10:35", sensor1: 43.9, sensor2: 48.7 },
-  { time: "10:40", sensor1: 44, sensor2: 48.8 },
-  { time: "10:45", sensor1: 44.1, sensor2: 48.9 },
-  { time: "10:50", sensor1: 44.2, sensor2: 49 },
-  { time: "10:55", sensor1: 44.3, sensor2: 49.1 },
-  { time: "11:00", sensor1: 44, sensor2: 49 }
-];
+// Mock 10-minute data for when zoomed in
+const generateTenMinuteWaterData = (date: Date) => {
+  const day = date.getDate();
+  const baseLevel1 = 40 + (day % 8); // Base level for sensor 1
+  const baseLevel2 = 45 + (day % 10); // Base level for sensor 2
+  
+  const data = [];
+  
+  for (let hour = 10; hour <= 11; hour++) {
+    for (let minute = 0; minute < 60; minute += 10) {
+      const variation1 = Math.sin(minute * 0.1) * 1.5;
+      const variation2 = Math.cos(minute * 0.1) * 1.5;
+      
+      data.push({
+        time: `${hour}:${minute.toString().padStart(2, '0')}`,
+        sensor1: +(baseLevel1 + variation1 + (hour - 10) * 0.2).toFixed(1),
+        sensor2: +(baseLevel2 + variation2 + (hour - 10) * 0.2).toFixed(1)
+      });
+    }
+  }
+  
+  return data;
+};
 
 const COLORS = ["#10B981", "#FBBF24", "#F97316", "#EF4444"];
 
 const Statistics = () => {
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [dailyData, setDailyData] = useState(generateDailyData(selectedDate));
+  const [hourlyWaterData, setHourlyWaterData] = useState(generateHourlyWaterData(selectedDate));
+  const [tenMinuteWaterData, setTenMinuteWaterData] = useState(generateTenMinuteWaterData(selectedDate));
+
+  const handleDateChange = (date: Date | undefined) => {
+    if (date) {
+      setSelectedDate(date);
+      setDailyData(generateDailyData(date));
+      setHourlyWaterData(generateHourlyWaterData(date));
+      setTenMinuteWaterData(generateTenMinuteWaterData(date));
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <h1 className="text-3xl font-bold">Statistik</h1>
+      <div className="flex justify-between items-center">
+        <h1 className="text-3xl font-bold">Statistik</h1>
+        <div className="w-[240px]">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full justify-start text-left font-normal",
+                  "border-dashed bg-background"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {format(selectedDate, "PPP")}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent align="end" className="w-auto p-0">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={handleDateChange}
+                initialFocus
+                className="pointer-events-auto"
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+      </div>
       
       <Tabs defaultValue="daily">
         <TabsList>
@@ -113,7 +196,7 @@ const Statistics = () => {
             <CardHeader>
               <CardTitle>Rata-rata Ketinggian Air Harian</CardTitle>
               <CardDescription>
-                Data rata-rata ketinggian air dalam centimeter per hari selama bulan Mei 2023
+                Data rata-rata ketinggian air dalam centimeter per jam pada {format(selectedDate, "dd MMMM yyyy")}
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -129,11 +212,17 @@ const Statistics = () => {
                     }}
                   >
                     <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
+                    <XAxis dataKey="time" />
                     <YAxis />
                     <Tooltip />
                     <Legend />
-                    <Line type="monotone" dataKey="level" stroke="#0EA5E9" activeDot={{ r: 8 }} name="Tinggi Air (cm)" />
+                    <Line 
+                      type="monotone" 
+                      dataKey="level" 
+                      stroke="#0EA5E9" 
+                      activeDot={{ r: 8 }} 
+                      name="Tinggi Air (cm)"
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -143,13 +232,14 @@ const Statistics = () => {
           <div className="mt-6">
             <ZoomableWaterLevelChart
               hourlyData={hourlyWaterData}
-              minutelyData={minutelyWaterData}
+              tenMinuteData={tenMinuteWaterData}
               title="Riwayat Ketinggian Air"
-              description="Data ketinggian air per jam/menit pada tanggal 06 Mei 2023"
+              description={`Data ketinggian air per jam/10 menit pada ${format(selectedDate, "dd MMMM yyyy")}`}
               sensors={[
                 { id: "sensor1", name: "Sensor Jembatan Merah", color: "#0EA5E9" },
                 { id: "sensor2", name: "Sensor Kampung Pulo", color: "#10B981" }
               ]}
+              scrollable={true}
             />
           </div>
         </TabsContent>
