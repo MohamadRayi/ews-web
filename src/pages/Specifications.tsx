@@ -1,6 +1,5 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import SensorCard from "@/components/sensors/SensorCard";
 
 // Mock data for sensors
@@ -44,73 +43,24 @@ const Specifications = () => {
           
           <div>
             <h3 className="text-lg font-semibold mb-2">Komponen Utama</h3>
-            <Tabs defaultValue="hardware">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="hardware">Hardware</TabsTrigger>
-                <TabsTrigger value="software">Software</TabsTrigger>
-                <TabsTrigger value="communication">Komunikasi</TabsTrigger>
-              </TabsList>
-              <TabsContent value="hardware" className="space-y-4 mt-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="font-medium">Sensor Ketinggian Air</h4>
-                    <p className="text-sm text-gray-600">Sensor ultrasonik waterproof HC-SR04 dengan jangkauan deteksi 2cm - 400cm.</p>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="font-medium">Mikrokontroler</h4>
-                    <p className="text-sm text-gray-600">ESP32 dengan WiFi dan Bluetooth terintegrasi untuk pengiriman data.</p>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="font-medium">Sumber Daya</h4>
-                    <p className="text-sm text-gray-600">Baterai 18650 3.7V dengan panel surya 5W untuk pengisian ulang.</p>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="font-medium">Casing</h4>
-                    <p className="text-sm text-gray-600">Casing waterproof IP67 tahan terhadap kondisi cuaca ekstrem.</p>
-                  </div>
-                </div>
-              </TabsContent>
-              <TabsContent value="software" className="space-y-4 mt-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="font-medium">Sistem Operasi</h4>
-                    <p className="text-sm text-gray-600">FreeRTOS untuk manajemen tugas pada mikrokontroler.</p>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="font-medium">Backend Server</h4>
-                    <p className="text-sm text-gray-600">Node.js dengan Express untuk REST API dan pengolahan data.</p>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="font-medium">Database</h4>
-                    <p className="text-sm text-gray-600">MongoDB untuk penyimpanan data deret waktu.</p>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="font-medium">Antarmuka</h4>
-                    <p className="text-sm text-gray-600">React.js dashboard dengan visualisasi data real-time.</p>
-                  </div>
-                </div>
-              </TabsContent>
-              <TabsContent value="communication" className="space-y-4 mt-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="font-medium">Protokol Komunikasi</h4>
-                    <p className="text-sm text-gray-600">MQTT untuk komunikasi real-time dengan bandwidth rendah.</p>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="font-medium">Konektivitas</h4>
-                    <p className="text-sm text-gray-600">WiFi dan GSM (backup) untuk pengiriman data.</p>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="font-medium">Integrasi Telegram</h4>
-                    <p className="text-sm text-gray-600">Bot Telegram API untuk pengiriman notifikasi langsung ke grup.</p>
-                  </div>
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <h4 className="font-medium">Keamanan</h4>
-                    <p className="text-sm text-gray-600">Enkripsi SSL/TLS untuk komunikasi data aman.</p>
-                  </div>
-                </div>
-              </TabsContent>
-            </Tabs>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium">Sensor Ketinggian Air</h4>
+                <p className="text-sm text-gray-600">Sensor ultrasonik waterproof HC-SR04 dengan jangkauan deteksi 2cm - 400cm.</p>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium">Mikrokontroler</h4>
+                <p className="text-sm text-gray-600">ESP32 dengan WiFi dan Bluetooth terintegrasi untuk pengiriman data.</p>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium">Sumber Daya</h4>
+                <p className="text-sm text-gray-600">Baterai 18650 3.7V dengan panel surya 5W untuk pengisian ulang.</p>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium">Casing</h4>
+                <p className="text-sm text-gray-600">Casing waterproof IP67 tahan terhadap kondisi cuaca ekstrem.</p>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>

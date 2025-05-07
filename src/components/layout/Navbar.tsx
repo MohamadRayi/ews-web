@@ -1,7 +1,7 @@
 
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { BellIcon, MenuIcon, Settings } from "lucide-react";
+import { MenuIcon } from "lucide-react";
 
 interface NavbarProps {
   toggleSidebar: () => void;
@@ -23,15 +23,6 @@ const Navbar = ({ toggleSidebar }: NavbarProps) => {
           <Link to="/" className="flex items-center">
             <span className="self-center text-xl font-semibold whitespace-nowrap text-ews-blue">EWS Dashboard</span>
           </Link>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="icon">
-            <BellIcon className="h-5 w-5" />
-          </Button>
-          <Button variant="ghost" size="icon">
-            <Settings className="h-5 w-5" />
-          </Button>
         </div>
       </div>
     </nav>
