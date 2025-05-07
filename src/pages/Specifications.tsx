@@ -59,6 +59,9 @@ const Specifications = () => {
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="font-medium">Casing</h4>
                 <p className="text-sm text-gray-600">Casing waterproof IP67 tahan terhadap kondisi cuaca ekstrem.</p>
+              </div><div className="bg-gray-50 p-4 rounded-lg">
+                <h4 className="font-medium">Panel Surya</h4>
+                <p className="text-sm text-gray-600">Panel surya untuk</p>
               </div>
             </div>
           </div>
