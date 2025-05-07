@@ -9,7 +9,7 @@ interface SensorCardProps {
   id: string;
   name: string;
   location: string;
-  status: "normal" | "warning" | "danger" | "offline";
+  status: "normal" | "warning" | "siaga" | "danger";
   waterLevel: number;
   batteryLevel: number;
 }
