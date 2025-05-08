@@ -32,7 +32,7 @@ const Telegram = () => {
             <div className="bg-blue-50 p-4 rounded-lg">
               <h3 className="font-semibold text-ews-blue mb-2">Fitur Bot Telegram:</h3>
               <ul className="list-disc pl-5 space-y-1 text-sm">
-                <li>Notifikasi perubahan status (normal, waspada, bahaya)</li>
+                <li>Notifikasi perubahan status (normal, waspada, siaga, bahaya)</li>
                 <li>Laporan harian ketinggian air</li>
                 <li>Peringatan dini saat level air mencapai ambang batas</li>
                 <li>Informasi cuaca terkini di lokasi pemantauan</li>
