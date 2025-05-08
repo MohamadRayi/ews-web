@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import StatCard from "@/components/dashboard/StatCard";
 import WaterLevelChart from "@/components/dashboard/WaterLevelChart";
-import { Users, Droplet, Gauge } from "lucide-react";
+import { Users, Gauge } from "lucide-react";
 import SensorCard from "@/components/sensors/SensorCard";
 
 // Mock data - in a real app, this would come from your API
@@ -63,18 +63,12 @@ const Dashboard = () => {
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Dashboard Monitoring</h1>
       
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <StatCard 
           title="Total Users" 
           value={userCount}
           description="Total pengguna yang tergabung dalam grup Telegram" 
           icon={<Users className="h-5 w-5 text-gray-500" />} 
-        />
-        <StatCard 
-          title="Status Ketinggian" 
-          value="Normal" 
-          description="Status ketinggian air saat ini"
-          icon={<Droplet className="h-5 w-5 text-ews-blue" />} 
         />
         <StatCard 
           title="Sensor Aktif" 
