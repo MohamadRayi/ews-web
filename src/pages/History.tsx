@@ -1,8 +1,7 @@
-
 import { useState } from "react";
 import ZoomableWaterLevelChart from "@/components/dashboard/ZoomableWaterLevelChart";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import { PieChart, Pie, Cell, Legend, ResponsiveContainer, Tooltip } from "recharts";
 
 // Mock hourly data for the zoomable chart
 const hourlyWaterData = [
@@ -52,19 +51,23 @@ const tenMinuteWaterData = [
 // Simplified location data with explanatory labels for non-technical users
 const locationData = [
   { 
-    name: "Jembatan Merah", 
-    keadaanNormal: 200, 
-    perluPerhatian: 10, 
-    kondisiSiaga: 5, 
-    kondisiBahaya: 1 
+    location: "Jembatan Merah",
+    data: [
+      { name: "Keadaan Normal", value: 200, color: "#10B981" },
+      { name: "Perlu Perhatian", value: 10, color: "#FBBF24" },
+      { name: "Kondisi Siaga", value: 5, color: "#F97316" },
+      { name: "Kondisi Bahaya", value: 1, color: "#EF4444" }
+    ]
   },
   { 
-    name: "Kampung Pulo", 
-    keadaanNormal: 180, 
-    perluPerhatian: 25, 
-    kondisiSiaga: 10, 
-    kondisiBahaya: 5 
-  },
+    location: "Kampung Pulo",
+    data: [
+      { name: "Keadaan Normal", value: 180, color: "#10B981" },
+      { name: "Perlu Perhatian", value: 25, color: "#FBBF24" },
+      { name: "Kondisi Siaga", value: 10, color: "#F97316" },
+      { name: "Kondisi Bahaya", value: 5, color: "#EF4444" }
+    ]
+  }
 ];
 
 const History = () => {
@@ -111,52 +114,44 @@ const History = () => {
             <CardHeader>
               <CardTitle>Kondisi Air Berdasarkan Lokasi</CardTitle>
               <CardDescription>
-                Jumlah jam dalam setiap kondisi ketinggian air di setiap lokasi pantauan
+                Distribusi waktu dalam kondisi ketinggian air di setiap lokasi dalam bentuk diagram lingkaran
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="overflow-x-auto">
-                <div className="h-80 min-w-[700px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart
-                      data={locationData}
-                      margin={{
-                        top: 20,
-                        right: 30,
-                        left: 20,
-                        bottom: 5,
-                      }}
-                    >
-                      <CartesianGrid strokeDasharray="3 3" />
-                      <XAxis dataKey="name" />
-                      <YAxis />
-                      <Tooltip formatter={(value, name) => {
-                        const labels = {
-                          keadaanNormal: "Keadaan Normal",
-                          perluPerhatian: "Perlu Perhatian",
-                          kondisiSiaga: "Kondisi Siaga",
-                          kondisiBahaya: "Kondisi Bahaya"
-                        };
-                        return [`${value} jam`, labels[name as keyof typeof labels]];
-                      }} />
-                      <Legend 
-                        formatter={(value) => {
-                          const labels = {
-                            keadaanNormal: "Keadaan Normal",
-                            perluPerhatian: "Perlu Perhatian",
-                            kondisiSiaga: "Kondisi Siaga",
-                            kondisiBahaya: "Kondisi Bahaya"
-                          };
-                          return labels[value as keyof typeof labels];
-                        }} 
-                      />
-                      <Bar dataKey="keadaanNormal" name="keadaanNormal" stackId="a" fill="#10B981" />
-                      <Bar dataKey="perluPerhatian" name="perluPerhatian" stackId="a" fill="#FBBF24" />
-                      <Bar dataKey="kondisiSiaga" name="kondisiSiaga" stackId="a" fill="#F97316" />
-                      <Bar dataKey="kondisiBahaya" name="kondisiBahaya" stackId="a" fill="#EF4444" />
-                    </BarChart>
-                  </ResponsiveContainer>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {locationData.map((location, index) => (
+                  <div key={index} className="bg-gray-50 p-4 rounded-lg">
+                    <h3 className="text-lg font-medium mb-4 text-center">{location.location}</h3>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={location.data}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey="value"
+                            nameKey="name"
+                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                          >
+                            {location.data.map((entry, i) => (
+                              <Cell key={`cell-${i}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            formatter={(value) => [`${value} jam`, 'Durasi']} 
+                          />
+                          <Legend layout="vertical" verticalAlign="middle" align="right" />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="mt-2 text-sm text-center text-gray-600">
+                      Total: {location.data.reduce((sum, item) => sum + item.value, 0)} jam
+                    </div>
+                  </div>
+                ))}
               </div>
 
               <div className="mt-8 space-y-6">
@@ -195,10 +190,10 @@ const History = () => {
                 </div>
 
                 <div className="p-4 border border-blue-200 bg-blue-50 rounded-lg">
-                  <h3 className="font-medium text-blue-800 mb-2">Tentang Data:</h3>
+                  <h3 className="font-medium text-blue-800 mb-2">Tentang Diagram:</h3>
                   <p className="text-sm text-blue-700">
-                    Grafik di atas menunjukkan berapa lama (dalam jam) setiap lokasi berada dalam kondisi tertentu. 
-                    Semakin tinggi bagian warna merah, semakin sering lokasi tersebut berada dalam kondisi bahaya.
+                    Diagram lingkaran di atas menunjukkan berapa lama (dalam jam) setiap lokasi berada dalam kondisi tertentu.
+                    Semakin besar bagian suatu warna, semakin lama lokasi tersebut berada dalam kondisi yang diwakili warna itu.
                   </p>
                 </div>
               </div>
