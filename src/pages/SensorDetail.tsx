@@ -7,13 +7,16 @@ import StatusIndicator from "@/components/dashboard/StatusIndicator";
 import { Droplet, Battery, ArrowLeft } from "lucide-react";
 import { Link } from "react-router-dom";
 
+// Define the type for the status
+type WaterLevelStatus = "normal" | "warning" | "siaga" | "danger";
+
 // Mock sensor data - in a real app, this would be fetched from API based on ID
 const sensorsData = {
   "sensor1": {
     id: "sensor1",
     name: "Sensor Jembatan Merah",
     location: "Sungai Ciliwung, Jakarta Barat",
-    status: "normal" as const,
+    status: "normal" as WaterLevelStatus,
     waterLevel: 36,
     batteryLevel: 85,
     lastUpdate: "2023-05-06 10:30:15",
@@ -36,7 +39,7 @@ const sensorsData = {
     id: "sensor2",
     name: "Sensor Kampung Pulo",
     location: "Sungai Ciliwung, Jakarta Timur",
-    status: "warning" as const,
+    status: "warning" as WaterLevelStatus,
     waterLevel: 53,
     batteryLevel: 62,
     lastUpdate: "2023-05-06 10:30:20",
