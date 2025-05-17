@@ -15,6 +15,36 @@ import { supabase } from "@/lib/supabase";
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import ZoomableWaterLevelChart from "@/components/dashboard/ZoomableWaterLevelChart";
 
+// Helper function to convert data for ZoomableWaterLevelChart
+const convertChartDataForZoomable = (data: ChartDataPoint[]): { date: string; value: number }[] => {
+  // If there are multiple sensors, we'll combine their data points
+  const allPoints = data.flatMap(sensor => 
+    sensor.data.map(point => ({
+      date: point.date,
+      value: point.value,
+      sensor: sensor.id
+    }))
+  );
+
+  // Group by time and calculate average
+  const groupedPoints = allPoints.reduce((acc, point) => {
+    if (!acc[point.date]) {
+      acc[point.date] = { sum: point.value, count: 1 };
+    } else {
+      acc[point.date].sum += point.value;
+      acc[point.date].count += 1;
+    }
+    return acc;
+  }, {} as Record<string, { sum: number; count: number }>);
+
+  return Object.entries(groupedPoints)
+    .map(([date, { sum, count }]) => ({
+      date,
+      value: Math.round(sum / count)
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+};
+
 type Tables = Database['public']['Tables'];
 type WaterReading = Tables['water_level_readings']['Row'];
 type Sensor = Tables['sensors']['Row'];
@@ -32,15 +62,19 @@ const getStatus = (waterLevel: number): WaterStatus => {
   return "normal";
 };
 
-interface ChartDataPoint {
+type ChartPoint = {
   date: string;
   value: number;
-  time?: string; // For compatibility with sensor detail view
+};
+
+interface ChartDataPoint {
+  id: string;
+  color: string;
+  data: ChartPoint[];
 }
 
 const History = () => {
   const [activeTab, setActiveTab] = useState("chart");
-  
   const [selectedTab, setSelectedTab] = useState("harian");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [location, setLocation] = useState<string>("all");
@@ -52,6 +86,14 @@ const History = () => {
   const [statusDistribution, setStatusDistribution] = useState<{ status: WaterStatus; count: number }[]>([]);
   const [locationDistribution, setLocationDistribution] = useState<{ location: string; readings: number }[]>([]);
   const [locations, setLocations] = useState<string[]>([]);
+  const [locationData, setLocationData] = useState<Array<{
+    location: string;
+    data: Array<{
+      name: string;
+      value: number;
+      color: string;
+    }>;
+  }>>([]);
   // Fetch locations when component mounts
   useEffect(() => {
     const fetchLocations = async () => {
@@ -75,29 +117,40 @@ const History = () => {
   }, []);
 
   useEffect(() => {
-    const processChartData = (readings: ReadingWithSensor[]) => {
-      // Group readings by hour and calculate average
-      const hourlyData = readings.reduce((acc, reading) => {
-        const hour = format(new Date(reading.reading_time), 'HH:00');
-        if (!acc[hour]) {
-          acc[hour] = { sum: reading.water_level, count: 1 };
-        } else {
-          acc[hour].sum += reading.water_level;
-          acc[hour].count += 1;
-        }
-        return acc;
-      }, {} as Record<string, { sum: number; count: number }>);
+  const processChartData = (readings: ReadingWithSensor[]) => {
+    // Group readings by sensor and time
+    const groupedBySensor = readings.reduce((acc, reading) => {
+      const sensorName = reading.sensors?.name || 'Unknown Sensor';
+      if (!acc[sensorName]) {
+        acc[sensorName] = {};
+      }
+      
+      const hour = format(new Date(reading.reading_time), 'HH:00');
+      if (!acc[sensorName][hour]) {
+        acc[sensorName][hour] = { sum: reading.water_level, count: 1 };
+      } else {
+        acc[sensorName][hour].sum += reading.water_level;
+        acc[sensorName][hour].count += 1;
+      }
+      return acc;
+    }, {} as Record<string, Record<string, { sum: number; count: number }>>);
 
-      // Convert to chart data format
-      const chartData = Object.entries(hourlyData).map(([hour, data]) => ({
-        date: hour,
-        value: Math.round(data.sum / data.count)
-      })).sort((a, b) => a.date.localeCompare(b.date));
+    // Convert to chart data format for each sensor
+    const chartData = Object.entries(groupedBySensor).map(([sensorName, hourlyData]) => ({
+      id: sensorName,
+      color: sensorName.includes('Jembatan') ? '#0EA5E9' : '#10B981',
+      data: Object.entries(hourlyData)
+        .map(([hour, data]) => ({
+          date: hour,
+          value: Math.round(data.sum / data.count)
+        }))
+        .sort((a, b) => a.date.localeCompare(b.date))
+    }));
 
       setChartData(chartData);
     };
 
-    const processDistributions = (readings: ReadingWithSensor[]) => {
+  const processDistributions = (readings: ReadingWithSensor[]) => {
       // Calculate status distribution
       const statusCounts = readings.reduce((acc, reading) => {
         acc[reading.status] = (acc[reading.status] || 0) + 1;
@@ -111,17 +164,51 @@ const History = () => {
         { status: "danger", count: statusCounts.danger || 0 }
       ]);
 
-      // Calculate location distribution
-      const locationCounts = readings.reduce((acc, reading) => {
-        const location = reading.sensors?.location || "Unknown";
-        acc[location] = (acc[location] || 0) + 1;
+      // Process location data with time-based distribution
+      const locationGroups = readings.reduce((acc, reading) => {
+        const location = reading.sensors?.location || 'Unknown';
+        if (!acc[location]) {
+          acc[location] = {
+            normal: 0,
+            warning: 0,
+            siaga: 0,
+            danger: 0
+          };
+        }
+        // Calculate duration until next reading
+        const currentTime = new Date(reading.reading_time);
+        const nextReading = readings.find(r => 
+          r.sensors?.location === location && 
+          new Date(r.reading_time) > currentTime
+        );
+        
+        const hours = nextReading 
+          ? Math.max(1, Math.round((new Date(nextReading.reading_time).getTime() - currentTime.getTime()) / (1000 * 60 * 60)))
+          : 1; // Default to 1 hour if it's the last reading
+        
+        acc[location][reading.status] += hours;
         return acc;
-      }, {} as Record<string, number>);
+      }, {} as Record<string, Record<WaterStatus, number>>);
 
+      // Convert to location chart format
+      const locationData = Object.entries(locationGroups).map(([location, counts]) => ({
+        location,
+        data: [
+          { name: 'Normal', value: counts.normal, color: '#10B981' },
+          { name: 'Waspada', value: counts.warning, color: '#FBBF24' },
+          { name: 'Siaga', value: counts.siaga, color: '#F97316' },
+          { name: 'Bahaya', value: counts.danger, color: '#EF4444' }
+        ]
+      }));
+
+      setLocationData(locationData);
+
+      // Set traditional location distribution
       setLocationDistribution(
-        Object.entries(locationCounts)
-          .map(([location, count]) => ({ location, readings: count }))
-          .sort((a, b) => b.readings - a.readings)
+        Object.entries(locationGroups).map(([location, counts]) => ({
+          location,
+          readings: Object.values(counts).reduce((sum, count) => sum + count, 0)
+        })).sort((a, b) => b.readings - a.readings)
       );
     };
 
@@ -154,6 +241,7 @@ const History = () => {
         // Process data for all visualizations
         processChartData(readingsWithStatus);
         processDistributions(readingsWithStatus);
+        processLocationData(readingsWithStatus);
 
         if (status && status !== 'all') {
           setReadings(readingsWithStatus.filter(r => r.status === status));
@@ -224,20 +312,21 @@ const History = () => {
           >
             Kondisi Per Lokasi
           </button>
-        </div>
-
-        {activeTab === "chart" && (
-          <ZoomableWaterLevelChart
-            hourlyData={hourlyWaterData}
-            tenMinuteData={tenMinuteWaterData}
-            title="Riwayat Ketinggian Air"
-            description="Data ketinggian air per jam/10 menit"
-            sensors={[
-              { id: "sensor1", name: "Sensor Jembatan Merah", color: "#0EA5E9" },
-              { id: "sensor2", name: "Sensor Kampung Pulo", color: "#10B981" }
-            ]}
-            scrollable={true}
-          />
+        </div>          {activeTab === "chart" && (          <Card>
+            <CardHeader>
+              <CardTitle>Riwayat Ketinggian Air</CardTitle>
+              <CardDescription>
+                Data ketinggian air per jam pada {format(selectedDate, "dd MMMM yyyy")}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>              <div className="h-[400px]">
+                <ZoomableWaterLevelChart
+                  data={convertChartDataForZoomable(chartData)}
+                  scrollable={true}
+                />
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {activeTab === "location" && (
@@ -347,10 +436,9 @@ const History = () => {
               <CardDescription>
                 Data rata-rata ketinggian air dalam centimeter per jam pada {format(selectedDate, "dd MMMM yyyy")}
               </CardDescription>
-            </CardHeader>            <CardContent>
-              <div className="h-[300px]">
+            </CardHeader>            <CardContent>              <div className="h-[300px]">
                 <ZoomableWaterLevelChart 
-                  data={chartData}
+                  data={convertChartDataForZoomable(chartData)}
                 />
               </div>
             </CardContent>
@@ -529,3 +617,47 @@ const History = () => {
 };
 
 export default History;
+
+// Helper function to calculate hours between timestamps
+const getHoursBetween = (start: Date, end: Date) => {
+  return Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60)));
+};
+
+// Helper function to process location data
+const processLocationData = (readings: ReadingWithSensor[]) => {
+  const locationGroups = readings.reduce((acc, reading) => {
+    const location = reading.sensors?.location || 'Unknown';
+    if (!acc[location]) {
+      acc[location] = {
+        normal: 0,
+        warning: 0,
+        siaga: 0,
+        danger: 0
+      };
+    }
+    // If this is the first reading for this location and status, get hours until next reading
+    const currentTime = new Date(reading.reading_time);
+    const nextReading = readings.find(r => 
+      r.sensors?.location === location && 
+      new Date(r.reading_time) > currentTime
+    );
+    
+    const hours = nextReading 
+      ? getHoursBetween(currentTime, new Date(nextReading.reading_time))
+      : 1; // Default to 1 hour if it's the last reading
+    
+    acc[location][reading.status] += hours;
+    return acc;
+  }, {} as Record<string, Record<WaterStatus, number>>);
+
+  // Convert to chart format
+  return Object.entries(locationGroups).map(([location, counts]) => ({
+    location,
+    data: [
+      { name: 'Normal', value: counts.normal, color: '#10B981' },
+      { name: 'Waspada', value: counts.warning, color: '#FBBF24' },
+      { name: 'Siaga', value: counts.siaga, color: '#F97316' },
+      { name: 'Bahaya', value: counts.danger, color: '#EF4444' }
+    ]
+  }));
+};
