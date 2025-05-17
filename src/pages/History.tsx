@@ -39,6 +39,8 @@ interface ChartDataPoint {
 }
 
 const History = () => {
+  const [activeTab, setActiveTab] = useState("chart");
+  
   const [selectedTab, setSelectedTab] = useState("harian");
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [location, setLocation] = useState<string>("all");
@@ -206,6 +208,129 @@ const History = () => {
             </PopoverContent>
           </Popover>
         </div>
+      </div>
+      
+      <div className="mb-6">
+        <div className="flex space-x-4 mb-4">
+          <button 
+            onClick={() => setActiveTab("chart")}
+            className={`px-4 py-2 rounded-lg ${activeTab === "chart" ? "bg-ews-blue text-white" : "bg-gray-100"}`}
+          >
+            Grafik Ketinggian Air
+          </button>
+          <button 
+            onClick={() => setActiveTab("location")}
+            className={`px-4 py-2 rounded-lg ${activeTab === "location" ? "bg-ews-blue text-white" : "bg-gray-100"}`}
+          >
+            Kondisi Per Lokasi
+          </button>
+        </div>
+
+        {activeTab === "chart" && (
+          <ZoomableWaterLevelChart
+            hourlyData={hourlyWaterData}
+            tenMinuteData={tenMinuteWaterData}
+            title="Riwayat Ketinggian Air"
+            description="Data ketinggian air per jam/10 menit"
+            sensors={[
+              { id: "sensor1", name: "Sensor Jembatan Merah", color: "#0EA5E9" },
+              { id: "sensor2", name: "Sensor Kampung Pulo", color: "#10B981" }
+            ]}
+            scrollable={true}
+          />
+        )}
+
+        {activeTab === "location" && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Kondisi Air Berdasarkan Lokasi</CardTitle>
+              <CardDescription>
+                Distribusi waktu dalam kondisi ketinggian air di setiap lokasi dalam bentuk diagram lingkaran
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {locationData.map((location, index) => (
+                  <div key={index} className="bg-gray-50 p-4 rounded-lg">
+                    <h3 className="text-lg font-medium mb-4 text-center">{location.location}</h3>
+                    <div className="h-64">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={location.data}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey="value"
+                            nameKey="name"
+                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                          >
+                            {location.data.map((entry, i) => (
+                              <Cell key={`cell-${i}`} fill={entry.color} />
+                            ))}
+                          </Pie>
+                          <Tooltip 
+                            formatter={(value) => [`${value} jam`, 'Durasi']} 
+                          />
+                          <Legend layout="vertical" verticalAlign="middle" align="right" />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                    <div className="mt-2 text-sm text-center text-gray-600">
+                      Total: {location.data.reduce((sum, item) => sum + item.value, 0)} jam
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-8 space-y-6">
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="font-medium mb-2">Penjelasan Kondisi Air:</h3>
+                  <ul className="space-y-3">
+                    <li className="flex items-start">
+                      <div className="h-5 w-5 rounded bg-[#10B981] mt-0.5 mr-3 flex-shrink-0"></div>
+                      <div>
+                        <span className="font-medium">Keadaan Normal</span>
+                        <p className="text-sm text-gray-600">Air berada pada ketinggian aman, tidak ada risiko banjir</p>
+                      </div>
+                    </li>
+                    <li className="flex items-start">
+                      <div className="h-5 w-5 rounded bg-[#FBBF24] mt-0.5 mr-3 flex-shrink-0"></div>
+                      <div>
+                        <span className="font-medium">Perlu Perhatian</span>
+                        <p className="text-sm text-gray-600">Air mulai naik, warga diharapkan waspada dan memantau situasi</p>
+                      </div>
+                    </li>
+                    <li className="flex items-start">
+                      <div className="h-5 w-5 rounded bg-[#F97316] mt-0.5 mr-3 flex-shrink-0"></div>
+                      <div>
+                        <span className="font-medium">Kondisi Siaga</span>
+                        <p className="text-sm text-gray-600">Air sudah mencapai batas siaga, warga diharapkan bersiap mengungsi</p>
+                      </div>
+                    </li>
+                    <li className="flex items-start">
+                      <div className="h-5 w-5 rounded bg-[#EF4444] mt-0.5 mr-3 flex-shrink-0"></div>
+                      <div>
+                        <span className="font-medium">Kondisi Bahaya</span>
+                        <p className="text-sm text-gray-600">Air mencapai level berbahaya, warga diharapkan segera mengungsi</p>
+                      </div>
+                    </li>
+                  </ul>
+                </div>
+
+                <div className="p-4 border border-blue-200 bg-blue-50 rounded-lg">
+                  <h3 className="font-medium text-blue-800 mb-2">Tentang Diagram:</h3>
+                  <p className="text-sm text-blue-700">
+                    Diagram lingkaran di atas menunjukkan berapa lama (dalam jam) setiap lokasi berada dalam kondisi tertentu.
+                    Semakin besar bagian suatu warna, semakin lama lokasi tersebut berada dalam kondisi yang diwakili warna itu.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       <Tabs defaultValue="harian" className="space-y-4" value={selectedTab} onValueChange={setSelectedTab}>
