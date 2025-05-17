@@ -1,28 +1,54 @@
-
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import SensorCard from "@/components/sensors/SensorCard";
+import { sensorService } from "@/lib/sensorService";
+import { useRealtime } from "@/hooks/use-realtime";
+import type { Database } from "@/lib/database.types";
 
-// Mock data for sensors
-const sensorData = [
-  {
-    id: "sensor1",
-    name: "Sensor Jembatan Merah",
-    location: "Sungai Ciliwung, Jakarta Barat",
-    status: "normal" as const,
-    waterLevel: 36,
-    batteryLevel: 85,
-  },
-  {
-    id: "sensor2",
-    name: "Sensor Kampung Pulo",
-    location: "Sungai Ciliwung, Jakarta Timur",
-    status: "warning" as const,
-    waterLevel: 53,
-    batteryLevel: 62,
-  },
-];
+type SensorStatus = Database['public']['Views']['current_sensor_status']['Row'];
 
 const Specifications = () => {
+  const [sensors, setSensors] = useState<SensorStatus[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Handle real-time updates
+  const handleStatusUpdate = (payload: { new: SensorStatus }) => {
+    setSensors(prev => {
+      const index = prev.findIndex(s => s.id === payload.new.id);
+      if (index >= 0) {
+        const newSensors = [...prev];
+        newSensors[index] = payload.new;
+        return newSensors;
+      }
+      return [...prev, payload.new];
+    });
+  };
+
+  // Use real-time subscription
+  useRealtime<SensorStatus>({
+    table: 'current_sensor_status',
+    onData: handleStatusUpdate
+  });
+
+  useEffect(() => {
+    const fetchSensors = async () => {
+      try {
+        const data = await sensorService.getAllSensors();
+        setSensors(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to fetch sensors');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSensors();
+  }, []);
+
+  if (loading) return <div className="p-4">Loading specifications...</div>;
+  if (error) return <div className="p-4 text-red-500">Error: {error}</div>;
+
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Spesifikasi Alat</h1>
@@ -46,7 +72,7 @@ const Specifications = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="font-medium">Sensor Ketinggian Air</h4>
-                <p className="text-sm text-gray-600">Sensor ultrasonik waterproof HC-SR04 dengan jangkauan deteksi 2cm - 400cm.</p>
+                <p className="text-sm text-gray-600">Sensor ultrasonik waterproof A02YYUW dengan jangkauan deteksi 2cm - 450cm.</p>
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="font-medium">Mikrokontroler</h4>
@@ -54,14 +80,11 @@ const Specifications = () => {
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="font-medium">Sumber Daya</h4>
-                <p className="text-sm text-gray-600">Baterai 18650 3.7V dengan panel surya 5W untuk pengisian ulang.</p>
+                <p className="text-sm text-gray-600">2 buah Baterai Li-ion 18650 3.7V dengan Panel Surya 9W untuk pengisian ulang.</p>
               </div>
               <div className="bg-gray-50 p-4 rounded-lg">
                 <h4 className="font-medium">Casing</h4>
                 <p className="text-sm text-gray-600">Casing waterproof IP67 tahan terhadap kondisi cuaca ekstrem.</p>
-              </div><div className="bg-gray-50 p-4 rounded-lg">
-                <h4 className="font-medium">Panel Surya</h4>
-                <p className="text-sm text-gray-600">Panel surya untuk</p>
               </div>
             </div>
           </div>
@@ -70,16 +93,8 @@ const Specifications = () => {
       
       <h2 className="text-xl font-semibold mt-8 mb-4">Sensor Terpasang</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {sensorData.map(sensor => (
-          <SensorCard
-            key={sensor.id}
-            id={sensor.id}
-            name={sensor.name}
-            location={sensor.location}
-            status={sensor.status}
-            waterLevel={sensor.waterLevel}
-            batteryLevel={sensor.batteryLevel}
-          />
+        {sensors.map(sensor => (
+          <SensorCard key={sensor.id} {...sensor} />
         ))}
       </div>
     </div>

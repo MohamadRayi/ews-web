@@ -1,6 +1,4 @@
-
 import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
@@ -14,13 +12,20 @@ import History from "./pages/History";
 import Statistics from "./pages/Statistics";
 import SensorDetail from "./pages/SensorDetail";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: false,
+      retry: 1,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
       <Toaster />
-      <Sonner />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
@@ -28,7 +33,7 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/specifications" element={<Specifications />} />
             <Route path="/telegram" element={<Telegram />} />
-            <Route path="/history" element={<Statistics />} />
+            <Route path="/history" element={<History />} />
             <Route path="/sensor/:id" element={<SensorDetail />} />
           </Route>
           <Route path="*" element={<NotFound />} />

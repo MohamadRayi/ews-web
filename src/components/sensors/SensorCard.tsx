@@ -1,54 +1,32 @@
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import StatusIndicator from "../dashboard/StatusIndicator";
+import { Database } from '@/lib/database.types';
 
-interface SensorCardProps {
-  id: string;
-  name: string;
-  location: string;
-  status: "normal" | "warning" | "siaga" | "danger";
-  waterLevel: number;
-  batteryLevel: number;
-}
+type SensorStatus = Database['public']['Views']['current_sensor_status']['Row'];
+interface SensorCardProps extends SensorStatus {}
 
 const SensorCard = ({
   id,
   name,
   location,
   status,
-  waterLevel,
-  batteryLevel,
-}: SensorCardProps) => {
+  water_level,}: SensorCardProps) => {
   return (
     <Card>
       <CardHeader>
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg">{name}</CardTitle>
-          <StatusIndicator status={status} />
+          <StatusIndicator status={status || 'normal'} />
         </div>
         <CardDescription>{location}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
         <div>
-          <span className="text-sm text-muted-foreground">Ketinggian Air:</span>
-          <div className="text-2xl font-bold text-ews-blue">{waterLevel} cm</div>
-        </div>
-        <div>
-          <span className="text-sm text-muted-foreground">Baterai:</span>
-          <div className="flex items-center">
-            <div className="w-full bg-gray-200 rounded-full h-2.5 dark:bg-gray-700 mr-2">
-              <div 
-                className={`h-2.5 rounded-full ${
-                  batteryLevel > 50 ? 'bg-ews-green' : 
-                  batteryLevel > 20 ? 'bg-ews-yellow' : 'bg-ews-red'
-                }`}
-                style={{ width: `${batteryLevel}%` }}
-              ></div>
-            </div>
-            <span className="text-sm font-medium">{batteryLevel}%</span>
+          <span className="text-sm text-muted-foreground">Ketinggian Air:</span>          <div className="text-2xl font-bold text-ews-blue">
+            {water_level ? `${water_level} cm` : 'N/A'}
           </div>
         </div>
       </CardContent>

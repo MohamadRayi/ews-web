@@ -1,209 +1,227 @@
-
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Button } from "@/components/ui/button";
+import { sensorService } from "@/lib/sensorService";
+import { supabase } from "@/lib/supabase";
+import { Database } from "@/lib/database.types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import WaterLevelChart from "@/components/dashboard/WaterLevelChart";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StatusIndicator from "@/components/dashboard/StatusIndicator";
-import { Droplet, Battery, ArrowLeft } from "lucide-react";
-import { Link } from "react-router-dom";
+import ZoomableWaterLevelChart from "@/components/dashboard/ZoomableWaterLevelChart";
+import { Clock, Bell, Droplet } from "lucide-react";
 
-// Mock sensor data - in a real app, this would be fetched from API based on ID
-const sensorsData = {
-  "sensor1": {
-    id: "sensor1",
-    name: "Sensor Jembatan Merah",
-    location: "Sungai Ciliwung, Jakarta Barat",
-    status: "normal" as const,
-    waterLevel: 36,
-    batteryLevel: 85,
-    lastUpdate: "2023-05-06 10:30:15",
-    chartData: [
-      { time: "06:00", sensor1: 32 },
-      { time: "07:00", sensor1: 34 },
-      { time: "08:00", sensor1: 35 },
-      { time: "09:00", sensor1: 36 },
-      { time: "10:00", sensor1: 36 },
-      { time: "11:00", sensor1: 35 },
-      { time: "12:00", sensor1: 38 },
-      { time: "13:00", sensor1: 40 },
-      { time: "14:00", sensor1: 38 },
-      { time: "15:00", sensor1: 37 },
-      { time: "16:00", sensor1: 36 },
-      { time: "17:00", sensor1: 36 },
-    ]
-  },
-  "sensor2": {
-    id: "sensor2",
-    name: "Sensor Kampung Pulo",
-    location: "Sungai Ciliwung, Jakarta Timur",
-    status: "warning" as const,
-    waterLevel: 53,
-    batteryLevel: 62,
-    lastUpdate: "2023-05-06 10:30:20",
-    chartData: [
-      { time: "06:00", sensor1: 40 },
-      { time: "07:00", sensor1: 42 },
-      { time: "08:00", sensor1: 45 },
-      { time: "09:00", sensor1: 48 },
-      { time: "10:00", sensor1: 50 },
-      { time: "11:00", sensor1: 52 },
-      { time: "12:00", sensor1: 53 },
-      { time: "13:00", sensor1: 53 },
-      { time: "14:00", sensor1: 54 },
-      { time: "15:00", sensor1: 53 },
-      { time: "16:00", sensor1: 52 },
-      { time: "17:00", sensor1: 53 },
-    ]
-  }
-};
+type Sensor = Database['public']['Tables']['sensors']['Row'];
+type WaterReading = Database['public']['Tables']['water_level_readings']['Row'];
+type AlertHistory = Database['public']['Tables']['alert_history']['Row'];
 
-const SensorDetail = () => {
+export default function SensorDetail() {
   const { id } = useParams<{ id: string }>();
-  const sensorData = id && sensorsData[id as keyof typeof sensorsData];
-  
-  if (!sensorData) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full">
-        <h2 className="text-2xl font-bold mb-4">Sensor tidak ditemukan</h2>
-        <Link to="/dashboard">
-          <Button>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Kembali ke Dashboard
-          </Button>
-        </Link>
-      </div>
-    );
-  }
+  const [sensor, setSensor] = useState<Sensor | null>(null);
+  const [alerts, setAlerts] = useState<AlertHistory[]>([]);
+  const [waterReadings, setWaterReadings] = useState<WaterReading[]>([]);
 
-  // Get status text for water level
-  const getStatusText = () => {
-    switch (sensorData.status) {
-      case "normal":
-        return "Normal";
-      case "warning":
-        return "Waspada";
-      case "siaga":
-        return "Siaga";
-      case "danger":
-      default:
-        return "Bahaya";
-    }
+  // Process readings into hourly and 10-minute data
+  const processReadings = (data: WaterReading[]) => {
+    const formatTime = (date: Date) => {
+      return date.toLocaleTimeString('id-ID', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
+    };
+
+    // Sort data by time first
+    data.sort((a, b) => new Date(a.reading_time).getTime() - new Date(b.reading_time).getTime());
+
+    const tenMinData = data.map(r => ({
+      time: formatTime(new Date(r.reading_time)),
+      [sensor?.id || 'sensor']: r.water_level
+    }));
+
+    // Group by hour for hourly data
+    const hourlyData = data.reduce((acc: any[], r) => {
+      const readingTime = new Date(r.reading_time);
+      const hour = readingTime.setMinutes(0, 0, 0);
+      const timeStr = formatTime(new Date(hour));
+      const existing = acc.find(d => d.time === timeStr);
+
+      if (existing) {
+        existing[sensor?.id || 'sensor'] = 
+          (existing[sensor?.id || 'sensor'] * existing.count + r.water_level) / (existing.count + 1);
+        existing.count += 1;
+      } else {
+        acc.push({
+          time: timeStr,
+          [sensor?.id || 'sensor']: r.water_level,
+          count: 1
+        });
+      }
+      return acc;
+    }, [])
+    .map(({ count, ...rest }) => rest); // Remove count from final data
+
+    return { 
+      hourlyData: hourlyData.sort((a, b) => a.time.localeCompare(b.time)),
+      tenMinData: tenMinData.sort((a, b) => a.time.localeCompare(b.time))
+    };
   };
 
+  useEffect(() => {
+    if (!id) return;
+
+    const fetchSensorData = async () => {
+      try {
+        const endDate = new Date();
+        const startDate = new Date(endDate.getTime() - 24 * 60 * 60 * 1000); // Last 24 hours
+
+        const [sensorData, waterData, alertData] = await Promise.all([
+          sensorService.getSensor(id),
+          sensorService.getWaterLevelStatistics(id, startDate, endDate),
+          sensorService.getSensorAlerts(id)
+        ]);
+
+        setSensor(sensorData);
+        setWaterReadings(waterData);
+        setAlerts(alertData);
+      } catch (error) {
+        console.error("Error fetching sensor data:", error);
+      }
+    };
+
+    fetchSensorData();
+
+    // Set up real-time subscriptions
+    const waterChannel = supabase
+      .channel('water-readings')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'water_level_readings',
+          filter: `sensor_id=eq.${id}`
+        },
+        (payload) => {
+          setWaterReadings(prev => {
+            const newData = [...prev, payload.new as WaterReading];
+            // Keep only last 24 hours of data
+            const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+            return newData.filter(r => new Date(r.reading_time) > cutoff);
+          });
+        }
+      )
+      .subscribe();
+
+    const alertChannel = supabase
+      .channel('alert-history')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'alert_history',
+          filter: `sensor_id=eq.${id}`
+        },
+        (payload) => {
+          setAlerts(prev => [...prev, payload.new as AlertHistory]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      waterChannel.unsubscribe();
+      alertChannel.unsubscribe();
+    };
+  }, [id]);
+
+  if (!sensor) return <div className="p-4">Loading sensor details...</div>;
+
+  const latestReading = waterReadings[waterReadings.length - 1];
+  const { hourlyData, tenMinData } = processReadings(waterReadings);
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <Link to="/dashboard">
-            <Button variant="ghost" className="pl-0">
-              <ArrowLeft className="mr-2 h-4 w-4" /> Kembali
-            </Button>
-          </Link>
-          <h1 className="text-3xl font-bold">{sensorData.name}</h1>
-          <p className="text-gray-500">{sensorData.location}</p>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500">Status:</span>
-          <StatusIndicator status={sensorData.status} />
-        </div>
-      </div>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Ketinggian Air</CardTitle>
-            <Droplet className="h-4 w-4 text-ews-blue" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-3xl font-bold">{sensorData.waterLevel} cm</div>
-            <p className="text-xs text-muted-foreground">Update terakhir: {sensorData.lastUpdate}</p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Baterai</CardTitle>
-            <Battery className="h-4 w-4 text-gray-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold mb-1">{sensorData.batteryLevel}%</div>
-            <div className="w-full bg-gray-200 rounded-full h-2.5">
-              <div 
-                className={`h-2.5 rounded-full ${
-                  sensorData.batteryLevel > 60 ? 'bg-ews-green' : 
-                  sensorData.batteryLevel > 20 ? 'bg-ews-yellow' : 'bg-ews-red'
-                }`}
-                style={{ width: `${sensorData.batteryLevel}%` }}
-              ></div>
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium">Status Ketinggian</CardTitle>
-            <Droplet className="h-4 w-4 text-ews-blue" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold flex items-center">
-              <StatusIndicator status={sensorData.status} pulseAnimation={true} />
-            </div>
-            <p className="text-xs text-muted-foreground mt-2">
-              {getStatusText()} - Level air saat ini
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-      
-      <WaterLevelChart 
-        data={sensorData.chartData} 
-        title="Riwayat Ketinggian Air" 
-        description="Data ketinggian air dalam 12 jam terakhir"
-        multipleSensors={false}
-      />
-      
+    <div className="space-y-6 p-6">
+      {/* Sensor Header */}
       <Card>
         <CardHeader>
-          <CardTitle>Informasi Teknis Sensor</CardTitle>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>{sensor.name}</CardTitle>
+              <p className="text-sm text-muted-foreground">{sensor.location}</p>
+            </div>
+            {latestReading && <StatusIndicator status={latestReading.status} />}
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="flex items-center gap-2">
+              <Droplet className="h-4 w-4" />
               <div>
-                <h3 className="text-sm font-medium text-gray-500">ID Sensor</h3>
-                <p>{sensorData.id}</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-gray-500">Lokasi GPS</h3>
-                <p>-6.2088, 106.8456</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-gray-500">Jenis Sensor</h3>
-                <p>Ultrasonik HC-SR04 Waterproof</p>
+                <p className="text-sm font-medium">Ketinggian Air</p>
+                <p className="text-2xl font-bold">{latestReading?.water_level || 'N/A'} cm</p>
               </div>
             </div>
-            <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <Clock className="h-4 w-4" />
               <div>
-                <h3 className="text-sm font-medium text-gray-500">Pemasangan</h3>
-                <p>2023-01-15</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-gray-500">Kalibrasi Terakhir</h3>
-                <p>2023-04-20</p>
-              </div>
-              <div>
-                <h3 className="text-sm font-medium text-gray-500">Status Jaringan</h3>
-                <div className="flex items-center gap-2">
-                  <div className="h-2 w-2 rounded-full bg-ews-green"></div>
-                  <span>Terhubung (4G)</span>
-                </div>
+                <p className="text-sm font-medium">Pembaruan Terakhir</p>
+                <p className="text-sm">
+                  {latestReading ? new Date(latestReading.reading_time).toLocaleString() : 'N/A'}
+                </p>
               </div>
             </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Tabs */}
+      <Tabs defaultValue="readings">
+        <TabsList>
+          <TabsTrigger value="readings">Riwayat Ketinggian Air</TabsTrigger>
+          <TabsTrigger value="alerts">Riwayat Peringatan</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="readings">
+          <Card>
+            <CardContent className="pt-6">
+              <ZoomableWaterLevelChart
+                hourlyData={hourlyData}
+                tenMinuteData={tenMinData}
+                title="Riwayat Ketinggian Air"
+                description="Data ketinggian air per jam dan per 10 menit dalam 24 jam terakhir"
+                scrollable
+                sensors={[{
+                  id: sensor.id,
+                  name: sensor.name,
+                  color: "#2563eb"
+                }]}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="alerts">
+          <Card>
+            <CardContent className="pt-6">
+              <div className="space-y-4">
+                {alerts.map(alert => (
+                  <div key={alert.id} className="flex items-start gap-4 border-b pb-4">
+                    <Bell className="h-5 w-5" />
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <StatusIndicator status={alert.status} />
+                        <p className="font-medium">Ketinggian Air: {alert.water_level} cm</p>
+                      </div>
+                      <p className="text-sm text-muted-foreground">{alert.message}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {new Date(alert.sent_at).toLocaleString()}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
-};
-
-export default SensorDetail;
+}
