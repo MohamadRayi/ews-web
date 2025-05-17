@@ -137,6 +137,9 @@ export default function SensorDetail() {
   const latestReading = waterReadings[waterReadings.length - 1];
   const { hourlyData, tenMinData } = processReadings(waterReadings);
 
+  console.log("hourlyData:", hourlyData);
+  console.log("tenMinData:", tenMinData);
+
   return (
     <div className="space-y-6 p-6">
       {/* Sensor Header */}
@@ -182,18 +185,22 @@ export default function SensorDetail() {
         <TabsContent value="readings">
           <Card>
             <CardContent className="pt-6">
-              <ZoomableWaterLevelChart
-                hourlyData={hourlyData}
-                tenMinuteData={tenMinData}
-                title="Riwayat Ketinggian Air"
-                description="Data ketinggian air per jam dan per 10 menit dalam 24 jam terakhir"
-                scrollable
-                sensors={[{
-                  id: sensor.id,
-                  name: sensor.name,
-                  color: "#2563eb"
-                }]}
-              />
+              <div style={{ height: '400px', width: '100%' }}>
+                <ZoomableWaterLevelChart
+                  hourlyData={hourlyData}
+                  tenMinuteData={tenMinData}
+                  title="Riwayat Ketinggian Air"
+                  description="Data ketinggian air per 10 menit dalam 24 jam terakhir"
+                  scrollable
+                  sensors={[
+                    {
+                      id: sensor.id,
+                      name: sensor.name,
+                      color: "#0EA5E9"
+                    }
+                  ]}
+                />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

@@ -90,7 +90,10 @@ const Dashboard = () => {
       <Card className="p-4">
         <WaterLevelChart
           data={waterReadings.map(reading => ({
-            time: reading.reading_time,
+            time: new Date(reading.reading_time).toLocaleTimeString('id-ID', {
+              hour: '2-digit',
+              minute: '2-digit'
+            }),
             sensor1: reading.water_level
           }))}
           title="Water Level Trends (Last 24 Hours)"

@@ -71,6 +71,7 @@ const ZoomableWaterLevelChart = ({
         tickPadding: 5,
         tickRotation: 0,
         legend: "Ketinggian Air (cm)",
+        legendPosition: "middle",
         legendOffset: -40
       }}
       enableGridX={true}
@@ -113,6 +114,11 @@ const ZoomableWaterLevelChart = ({
           }
         }
       }}
+      tooltip={({ point }) => (
+        <div style={{ background: "white", padding: "5px", border: "1px solid #ccc" }}>
+          <strong>{point.seriesId}</strong>: {Math.round(point.data.y)} cm
+        </div>
+      )}
     />
   );
 };

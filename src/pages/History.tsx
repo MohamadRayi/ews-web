@@ -306,312 +306,204 @@ const History = () => {
           >
             Grafik Ketinggian Air
           </button>
-          <button 
-            onClick={() => setActiveTab("location")}
-            className={`px-4 py-2 rounded-lg ${activeTab === "location" ? "bg-ews-blue text-white" : "bg-gray-100"}`}
-          >
-            Kondisi Per Lokasi
-          </button>
-        </div>          {activeTab === "chart" && (          <Card>
-            <CardHeader>
-              <CardTitle>Riwayat Ketinggian Air</CardTitle>
-              <CardDescription>
-                Data ketinggian air per jam pada {format(selectedDate, "dd MMMM yyyy")}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>              <div className="h-[400px]">
-                <ZoomableWaterLevelChart
-                  data={convertChartDataForZoomable(chartData)}
-                  scrollable={true}
-                />
-              </div>
-            </CardContent>
-          </Card>
-        )}
+        </div>
+        {activeTab === "chart" && (
+          <Tabs defaultValue="harian" className="space-y-4" value={selectedTab} onValueChange={setSelectedTab}>
+            <TabsList>
+              <TabsTrigger value="harian">Harian</TabsTrigger>
+              <TabsTrigger value="status">Status</TabsTrigger>
+              <TabsTrigger value="tabel">Tabel Riwayat</TabsTrigger>
+            </TabsList>
 
-        {activeTab === "location" && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Kondisi Air Berdasarkan Lokasi</CardTitle>
-              <CardDescription>
-                Distribusi waktu dalam kondisi ketinggian air di setiap lokasi dalam bentuk diagram lingkaran
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {locationData.map((location, index) => (
-                  <div key={index} className="bg-gray-50 p-4 rounded-lg">
-                    <h3 className="text-lg font-medium mb-4 text-center">{location.location}</h3>
-                    <div className="h-64">
+            <TabsContent value="harian" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Grafik Ketinggian Air</CardTitle>
+                  <CardDescription>
+                    Data ketinggian air per jam pada {format(selectedDate, "dd MMMM yyyy")}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="h-[400px]">
+                    <ZoomableWaterLevelChart
+                      data={convertChartDataForZoomable(chartData)}
+                      scrollable={true}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            <TabsContent value="status" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Distribusi Status Air</CardTitle>
+                  <CardDescription>
+                    Persentase waktu pada setiap status ketinggian air
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="h-[300px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <PieChart>
                           <Pie
-                            data={location.data}
+                            data={statusDistribution.map(({ status, count }) => ({
+                              name: status === 'warning' ? 'Waspada' : 
+                                    status === 'siaga' ? 'Siaga' :
+                                    status === 'danger' ? 'Bahaya' : 'Normal',
+                              value: count,
+                              label: `${status === 'warning' ? 'Waspada' : 
+                                      status === 'siaga' ? 'Siaga' :
+                                      status === 'danger' ? 'Bahaya' : 'Normal'} ${totalReadings > 0 ? Math.round((count / totalReadings) * 100) : 0}%`
+                            }))}
                             cx="50%"
                             cy="50%"
-                            labelLine={false}
+                            startAngle={90}
+                            endAngle={-270}
                             outerRadius={80}
-                            fill="#8884d8"
                             dataKey="value"
-                            nameKey="name"
-                            label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                            labelLine={false}
+                            label={({ cx, cy, midAngle, innerRadius, outerRadius, value, label }) => {
+                              const radius = innerRadius + (outerRadius - innerRadius) * 1.4;
+                              const x = cx + radius * Math.cos(-midAngle * Math.PI / 180);
+                              const y = cy + radius * Math.sin(-midAngle * Math.PI / 180);
+                              return (
+                                <text x={x} y={y} fill="#666" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central">
+                                  {label}
+                                </text>
+                              );
+                            }}
                           >
-                            {location.data.map((entry, i) => (
-                              <Cell key={`cell-${i}`} fill={entry.color} />
+                            {statusDistribution.map((entry) => (
+                              <Cell 
+                                key={entry.status}
+                                fill={entry.status === 'normal' ? '#10B981' :
+                                      entry.status === 'warning' ? '#FBBF24' :
+                                      entry.status === 'siaga' ? '#F97316' :
+                                      '#EF4444'} 
+                              />
                             ))}
                           </Pie>
-                          <Tooltip 
-                            formatter={(value) => [`${value} jam`, 'Durasi']} 
-                          />
-                          <Legend layout="vertical" verticalAlign="middle" align="right" />
                         </PieChart>
                       </ResponsiveContainer>
                     </div>
-                    <div className="mt-2 text-sm text-center text-gray-600">
-                      Total: {location.data.reduce((sum, item) => sum + item.value, 0)} jam
+                    <div className="space-y-4">
+                      {statusDistribution.map(({ status, count }) => (
+                        <div key={status} className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <StatusIndicator status={status} pulseAnimation={false} />
+                            <span className="font-medium">{count} kejadian</span>
+                          </div>
+                          <span className="text-muted-foreground">
+                            {totalReadings > 0 ? Math.round((count / totalReadings) * 100) : 0}%
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))}
-              </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-              <div className="mt-8 space-y-6">
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <h3 className="font-medium mb-2">Penjelasan Kondisi Air:</h3>
-                  <ul className="space-y-3">
-                    <li className="flex items-start">
-                      <div className="h-5 w-5 rounded bg-[#10B981] mt-0.5 mr-3 flex-shrink-0"></div>
+            <TabsContent value="tabel" className="space-y-4">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Riwayat Ketinggian Air</CardTitle>
+                  <CardDescription>
+                    Data ketinggian air per sensor pada {format(selectedDate, "dd MMMM yyyy")}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
                       <div>
-                        <span className="font-medium">Keadaan Normal</span>
-                        <p className="text-sm text-gray-600">Air berada pada ketinggian aman, tidak ada risiko banjir</p>
+                        <Select value={location} onValueChange={setLocation}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Pilih lokasi" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              <SelectLabel>Lokasi</SelectLabel>
+                              <SelectItem value="all">Semua Lokasi</SelectItem>
+                              {locations.map((loc) => (
+                                <SelectItem key={loc} value={loc}>
+                                  {loc}
+                                </SelectItem>
+                              ))}
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
                       </div>
-                    </li>
-                    <li className="flex items-start">
-                      <div className="h-5 w-5 rounded bg-[#FBBF24] mt-0.5 mr-3 flex-shrink-0"></div>
-                      <div>
-                        <span className="font-medium">Perlu Perhatian</span>
-                        <p className="text-sm text-gray-600">Air mulai naik, warga diharapkan waspada dan memantau situasi</p>
-                      </div>
-                    </li>
-                    <li className="flex items-start">
-                      <div className="h-5 w-5 rounded bg-[#F97316] mt-0.5 mr-3 flex-shrink-0"></div>
-                      <div>
-                        <span className="font-medium">Kondisi Siaga</span>
-                        <p className="text-sm text-gray-600">Air sudah mencapai batas siaga, warga diharapkan bersiap mengungsi</p>
-                      </div>
-                    </li>
-                    <li className="flex items-start">
-                      <div className="h-5 w-5 rounded bg-[#EF4444] mt-0.5 mr-3 flex-shrink-0"></div>
-                      <div>
-                        <span className="font-medium">Kondisi Bahaya</span>
-                        <p className="text-sm text-gray-600">Air mencapai level berbahaya, warga diharapkan segera mengungsi</p>
-                      </div>
-                    </li>
-                  </ul>
-                </div>
 
-                <div className="p-4 border border-blue-200 bg-blue-50 rounded-lg">
-                  <h3 className="font-medium text-blue-800 mb-2">Tentang Diagram:</h3>
-                  <p className="text-sm text-blue-700">
-                    Diagram lingkaran di atas menunjukkan berapa lama (dalam jam) setiap lokasi berada dalam kondisi tertentu.
-                    Semakin besar bagian suatu warna, semakin lama lokasi tersebut berada dalam kondisi yang diwakili warna itu.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+                      <div>
+                        <Select value={status} onValueChange={setStatus}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Pilih status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectGroup>
+                              <SelectLabel>Status</SelectLabel>
+                              <SelectItem value="all">Semua Status</SelectItem>
+                              <SelectItem value="normal">Normal</SelectItem>
+                              <SelectItem value="warning">Waspada</SelectItem>
+                              <SelectItem value="siaga">Siaga</SelectItem>
+                              <SelectItem value="danger">Bahaya</SelectItem>
+                            </SelectGroup>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div className="flex justify-end lg:col-span-1">
+                        <Button onClick={handleResetFilters} variant="outline" className="w-full">
+                          Reset Filter
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="border rounded-lg overflow-hidden">
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Alat</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Lokasi</TableHead>
+                            <TableHead>Tanggal</TableHead>
+                            <TableHead>Waktu</TableHead>
+                            <TableHead className="text-right">Ketinggian (cm)</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {readings.length > 0 ? (
+                            readings.map((reading) => (
+                              <TableRow key={reading.id}>
+                                <TableCell>{reading.sensors?.name}</TableCell>
+                                <TableCell>
+                                  <StatusIndicator status={reading.status} pulseAnimation={false} />
+                                </TableCell>
+                                <TableCell>{reading.sensors?.location}</TableCell>
+                                <TableCell>{format(new Date(reading.reading_time), 'yyyy-MM-dd')}</TableCell>
+                                <TableCell>{format(new Date(reading.reading_time), 'HH:mm:ss')}</TableCell>
+                                <TableCell className="text-right font-medium">{reading.water_level}</TableCell>
+                              </TableRow>
+                            ))
+                          ) : (
+                            <TableRow>
+                              <TableCell colSpan={6} className="text-center py-6">
+                                Tidak ada data yang sesuai dengan filter.
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          </Tabs>
         )}
       </div>
-
-      <Tabs defaultValue="harian" className="space-y-4" value={selectedTab} onValueChange={setSelectedTab}>
-        <TabsList>
-          <TabsTrigger value="harian">Harian</TabsTrigger>
-          <TabsTrigger value="status">Status</TabsTrigger>
-          <TabsTrigger value="tabel">Tabel Riwayat</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="harian" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Rata-rata Ketinggian Air Harian</CardTitle>
-              <CardDescription>
-                Data rata-rata ketinggian air dalam centimeter per jam pada {format(selectedDate, "dd MMMM yyyy")}
-              </CardDescription>
-            </CardHeader>            <CardContent>              <div className="h-[300px]">
-                <ZoomableWaterLevelChart 
-                  data={convertChartDataForZoomable(chartData)}
-                />
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="status" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Distribusi Status Air</CardTitle>
-              <CardDescription>
-                Persentase waktu pada setiap status ketinggian air
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={statusDistribution.map(({ status, count }) => ({
-                          name: status === 'warning' ? 'Waspada' : 
-                                status === 'siaga' ? 'Siaga' :
-                                status === 'danger' ? 'Bahaya' : 'Normal',
-                          value: count,
-                          label: `${status === 'warning' ? 'Waspada' : 
-                                  status === 'siaga' ? 'Siaga' :
-                                  status === 'danger' ? 'Bahaya' : 'Normal'} ${totalReadings > 0 ? Math.round((count / totalReadings) * 100) : 0}%`
-                        }))}
-                        cx="50%"
-                        cy="50%"
-                        startAngle={90}
-                        endAngle={-270}
-                        outerRadius={80}
-                        dataKey="value"
-                        labelLine={false}
-                        label={({ cx, cy, midAngle, innerRadius, outerRadius, value, label }) => {
-                          const radius = innerRadius + (outerRadius - innerRadius) * 1.4;
-                          const x = cx + radius * Math.cos(-midAngle * Math.PI / 180);
-                          const y = cy + radius * Math.sin(-midAngle * Math.PI / 180);
-                          return (
-                            <text x={x} y={y} fill="#666" textAnchor={x > cx ? 'start' : 'end'} dominantBaseline="central">
-                              {label}
-                            </text>
-                          );
-                        }}
-                      >
-                        {statusDistribution.map((entry) => (
-                          <Cell 
-                            key={entry.status}
-                            fill={entry.status === 'normal' ? '#10B981' :
-                                  entry.status === 'warning' ? '#FBBF24' :
-                                  entry.status === 'siaga' ? '#F97316' :
-                                  '#EF4444'} 
-                          />
-                        ))}
-                      </Pie>
-                    </PieChart>
-                  </ResponsiveContainer>
-                </div>
-                <div className="space-y-4">
-                  {statusDistribution.map(({ status, count }) => (
-                    <div key={status} className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <StatusIndicator status={status} pulseAnimation={false} />
-                        <span className="font-medium">{count} kejadian</span>
-                      </div>
-                      <span className="text-muted-foreground">
-                        {totalReadings > 0 ? Math.round((count / totalReadings) * 100) : 0}%
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="tabel" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Riwayat Ketinggian Air</CardTitle>
-              <CardDescription>
-                Data ketinggian air per sensor pada {format(selectedDate, "dd MMMM yyyy")}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-                  <div>
-                    <Select value={location} onValueChange={setLocation}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Pilih lokasi" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectLabel>Lokasi</SelectLabel>
-                          <SelectItem value="all">Semua Lokasi</SelectItem>
-                          {locations.map((loc) => (
-                            <SelectItem key={loc} value={loc}>
-                              {loc}
-                            </SelectItem>
-                          ))}
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Select value={status} onValueChange={setStatus}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Pilih status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectLabel>Status</SelectLabel>
-                          <SelectItem value="all">Semua Status</SelectItem>
-                          <SelectItem value="normal">Normal</SelectItem>
-                          <SelectItem value="warning">Waspada</SelectItem>
-                          <SelectItem value="siaga">Siaga</SelectItem>
-                          <SelectItem value="danger">Bahaya</SelectItem>
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="flex justify-end lg:col-span-1">
-                    <Button onClick={handleResetFilters} variant="outline" className="w-full">
-                      Reset Filter
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="border rounded-lg overflow-hidden">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Alat</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Lokasi</TableHead>
-                        <TableHead>Tanggal</TableHead>
-                        <TableHead>Waktu</TableHead>
-                        <TableHead className="text-right">Ketinggian (cm)</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {readings.length > 0 ? (
-                        readings.map((reading) => (
-                          <TableRow key={reading.id}>
-                            <TableCell>{reading.sensors?.name}</TableCell>
-                            <TableCell>
-                              <StatusIndicator status={reading.status} pulseAnimation={false} />
-                            </TableCell>
-                            <TableCell>{reading.sensors?.location}</TableCell>
-                            <TableCell>{format(new Date(reading.reading_time), 'yyyy-MM-dd')}</TableCell>
-                            <TableCell>{format(new Date(reading.reading_time), 'HH:mm:ss')}</TableCell>
-                            <TableCell className="text-right font-medium">{reading.water_level}</TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center py-6">
-                            Tidak ada data yang sesuai dengan filter.
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
     </div>
   );
 };
