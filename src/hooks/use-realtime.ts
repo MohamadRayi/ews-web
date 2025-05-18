@@ -1,58 +1,69 @@
 import { useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
-import { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
-type RealtimeEvent = 'INSERT' | 'UPDATE' | 'DELETE' | '*';
-
-interface UseRealtimeOptions<T> {
+interface UseRealtimeProps<T> {
   table: string;
-  event?: RealtimeEvent;
-  schema?: string;
-  filter?: string;
   onData: (payload: {
     new: T;
     old: T | null;
     eventType: 'INSERT' | 'UPDATE' | 'DELETE';
   }) => void;
+  filter?: string;
+  filterValue?: string;
 }
 
 export function useRealtime<T>({
   table,
-  event = '*',
-  schema = 'public',
-  filter,
   onData,
-}: UseRealtimeOptions<T>) {
+  filter,
+  filterValue,
+}: UseRealtimeProps<T>) {
   useEffect(() => {
     let channel: RealtimeChannel;
 
-    const setupSubscription = () => {
-      channel = supabase.channel(`${schema}:${table}`);
-      
-      const config = {
-        event,
-        schema,
-        table,
-        ...(filter ? { filter } : {})
-      };
+    const setupSubscription = async () => {
+      // Create a channel with a unique name
+      channel = supabase.channel(`${table}-changes-${Date.now()}`);
 
+      // Configure the subscription
+      const config = {
+        event: '*',
+        schema: 'public',
+        table: table,
+      } as const;
+
+      // Add filter if provided
+      if (filter && filterValue) {
+        Object.assign(config, {
+          filter: `${filter}=eq.${filterValue}`,
+        });
+      }
+
+      // Subscribe to changes
       channel
-        .on('postgres_changes' as 'system', config, (payload: RealtimePostgresChangesPayload<T>) => {
+        .on('postgres_changes', config, (payload) => {
+          const eventType = payload.eventType as 'INSERT' | 'UPDATE' | 'DELETE';
           onData({
             new: payload.new as T,
             old: payload.old as T | null,
-            eventType: payload.eventType
+            eventType,
           });
         })
-        .subscribe();
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            console.log(`Subscribed to ${table} changes`);
+          }
+        });
     };
 
     setupSubscription();
 
+    // Cleanup subscription on unmount
     return () => {
       if (channel) {
         channel.unsubscribe();
       }
     };
-  }, [table, event, schema, filter, onData]);
+  }, [table, onData, filter, filterValue]);
 }

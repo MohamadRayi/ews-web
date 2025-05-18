@@ -1,125 +1,122 @@
-import { ResponsiveLine } from "@nivo/line";
-import { linearGradientDef } from "@nivo/core";
+import { useMemo } from "react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  ReferenceArea,
+} from "recharts";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+
+interface ChartData {
+  date: string;
+  value: number;
+}
 
 interface ZoomableWaterLevelChartProps {
-  hourlyData?: any[];
-  tenMinuteData?: any[];
-  data?: { date: string; value: number; }[];
+  data: ChartData[];
   title?: string;
   description?: string;
   scrollable?: boolean;
-  sensors?: Array<{
-    id: string;
-    name: string;
-    color: string;
-  }>;
 }
 
-const ZoomableWaterLevelChart = ({ 
+const ZoomableWaterLevelChart = ({
   data,
-  hourlyData,
-  tenMinuteData,
   title,
   description,
-  scrollable,
-  sensors 
+  scrollable = false,
 }: ZoomableWaterLevelChartProps) => {
-  // Process data based on which props are provided
-  const chartData = data ? [
-    {
-      id: "Tinggi Air (cm)",
-      color: "#0EA5E9",
-      data: data.map((d) => ({
-        x: d.date,
-        y: d.value
-      }))
+  const chartData = useMemo(() => data, [data]);
+
+  // Calculate min and max values for better visualization
+  const { minValue, maxValue, yDomain } = useMemo(() => {
+    if (data.length === 0) {
+      return {
+        minValue: 0,
+        maxValue: 100,
+        yDomain: [0, 100]
+      };
     }
-  ] : sensors?.map(sensor => ({
-    id: sensor.name,
-    color: sensor.color,
-    data: (hourlyData || []).map(d => ({
-      x: d.time,
-      y: d[sensor.id]
-    })).filter(d => d.y !== undefined)
-  })) || [];
+    const min = Math.min(...data.map(d => d.value));
+    const max = Math.max(...data.map(d => d.value));
+    const padding = ((max - min) || 50) * 0.1; // Use 50 as default range if min === max
+    return {
+      minValue: min,
+      maxValue: max,
+      yDomain: [Math.max(0, min - padding), max + padding]
+    };
+  }, [data]);
+
+  // Define danger zones
+  const dangerZones = useMemo(() => {
+    const zones = [
+      { level: 100, color: "#FBBF24", label: "Waspada" },
+      { level: 150, color: "#F97316", label: "Siaga" },
+      { level: 200, color: "#EF4444", label: "Bahaya" },
+    ];
+    return zones.filter(zone => zone.level >= yDomain[0] && zone.level <= yDomain[1]);
+  }, [yDomain]);
+
+  if (!data.length) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <p className="text-muted-foreground">Tidak ada data untuk ditampilkan</p>
+      </div>
+    );
+  }
 
   return (
-    <ResponsiveLine
-      data={chartData}
-      margin={{ top: 10, right: 30, bottom: 50, left: 50 }}
-      xScale={{
-        type: "point"
-      }}
-      yScale={{
-        type: "linear",
-        min: "auto",
-        max: "auto",
-        stacked: false
-      }}
-      curve="monotoneX"
-      axisTop={null}
-      axisRight={null}
-      axisBottom={{
-        tickSize: 5,
-        tickPadding: 5,
-        tickRotation: -45,
-        legend: "Waktu",
-        legendOffset: 40
-      }}
-      axisLeft={{
-        tickSize: 5,
-        tickPadding: 5,
-        tickRotation: 0,
-        legend: "Ketinggian Air (cm)",
-        legendPosition: "middle",
-        legendOffset: -40
-      }}
-      enableGridX={true}
-      enableGridY={true}
-      colors={chartData.length === 1 ? ["#0EA5E9"] : { scheme: 'category10' }}
-      lineWidth={2}
-      pointSize={6}
-      pointColor={{ theme: 'background' }}
-      pointBorderWidth={2}
-      pointBorderColor={{ from: 'serieColor' }}
-      enableArea={true}
-      areaOpacity={0.15}
-      enableSlices="x"
-      useMesh={true}
-      animate={false}
-      theme={{
-        axis: {
-          domain: {
-            line: {
-              stroke: "#E2E8F0"
-            }
-          },
-          ticks: {
-            line: {
-              stroke: "#E2E8F0"
-            },
-            text: {
-              fill: "#64748B"
-            }
-          }
-        },
-        grid: {
-          line: {
-            stroke: "#F1F5F9"
-          }
-        },
-        crosshair: {
-          line: {
-            stroke: "#64748B"
-          }
-        }
-      }}
-      tooltip={({ point }) => (
-        <div style={{ background: "white", padding: "5px", border: "1px solid #ccc" }}>
-          <strong>{point.seriesId}</strong>: {Math.round(point.data.y)} cm
-        </div>
-      )}
-    />
+    <ResponsiveContainer width="100%" height="100%">
+      <LineChart
+        data={chartData}
+        margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+      >
+        <CartesianGrid strokeDasharray="3 3" />
+        <XAxis
+          dataKey="date"
+          tickFormatter={(value) => value}
+          interval={0}
+          minTickGap={0}
+          ticks={Array.from(new Set(chartData.map(d => d.date))).filter((v, i, arr) => {
+            return v.endsWith(':00');
+          })}
+        />
+        <YAxis
+          domain={yDomain}
+          tickFormatter={(value) => `${value} cm`}
+        />
+        <Tooltip
+          formatter={(value: number) => [`${value} cm`, "Ketinggian Air"]}
+          labelFormatter={(label) => `Waktu: ${label}`}
+          contentStyle={{ backgroundColor: 'white', border: '1px solid #ccc' }}
+        />
+
+        {/* Reference Areas for Danger Zones */}
+        {dangerZones.map((zone, index) => (
+          <ReferenceArea
+            key={zone.level}
+            y1={index > 0 ? dangerZones[index - 1].level : yDomain[0]}
+            y2={zone.level}
+            fill={zone.color}
+            fillOpacity={0.1}
+            ifOverflow="extendDomain"
+          />
+        ))}
+
+        <Line
+          type="monotone"
+          dataKey="value"
+          stroke="#2563EB"
+          strokeWidth={2}
+          dot={data.length < 30} // Only show dots if we have few data points
+          activeDot={{ r: 4 }}
+          isAnimationActive={false}
+        />
+      </LineChart>
+    </ResponsiveContainer>
   );
 };
 

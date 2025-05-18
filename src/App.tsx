@@ -35,6 +35,7 @@ const App = () => (
             <Route path="/telegram" element={<Telegram />} />
             <Route path="/history" element={<History />} />
             <Route path="/sensor/:id" element={<SensorDetail />} />
+            <Route path="/sensors/:id" element={<SensorDetail />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

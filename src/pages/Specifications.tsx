@@ -5,7 +5,7 @@ import { sensorService } from "@/lib/sensorService";
 import { useRealtime } from "@/hooks/use-realtime";
 import type { Database } from "@/lib/database.types";
 
-type SensorStatus = Database['public']['Views']['current_sensor_status']['Row'];
+type SensorStatus = Database['public']['Tables']['current_sensor_status']['Row'];
 
 const Specifications = () => {
   const [sensors, setSensors] = useState<SensorStatus[]>([]);
@@ -13,16 +13,24 @@ const Specifications = () => {
   const [error, setError] = useState<string | null>(null);
 
   // Handle real-time updates
-  const handleStatusUpdate = (payload: { new: SensorStatus }) => {
-    setSensors(prev => {
-      const index = prev.findIndex(s => s.id === payload.new.id);
-      if (index >= 0) {
-        const newSensors = [...prev];
-        newSensors[index] = payload.new;
-        return newSensors;
-      }
-      return [...prev, payload.new];
-    });
+  const handleStatusUpdate = (payload: { 
+    new: SensorStatus; 
+    old: SensorStatus | null;
+    eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+  }) => {
+    if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+      setSensors(prev => {
+        const index = prev.findIndex(s => s.id === payload.new.id);
+        if (index >= 0) {
+          const newSensors = [...prev];
+          newSensors[index] = payload.new;
+          return newSensors;
+        }
+        return [...prev, payload.new];
+      });
+    } else if (payload.eventType === 'DELETE' && payload.old) {
+      setSensors(prev => prev.filter(s => s.id !== payload.old?.id));
+    }
   };
 
   // Use real-time subscription
@@ -96,6 +104,9 @@ const Specifications = () => {
         {sensors.map(sensor => (
           <SensorCard key={sensor.id} {...sensor} />
         ))}
+        {sensors.length === 0 && (
+          <p className="text-center text-muted-foreground col-span-3">Belum ada sensor terpasang</p>
+        )}
       </div>
     </div>
   );

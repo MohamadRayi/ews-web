@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { format, startOfDay, endOfDay } from "date-fns";
+import { id } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Calendar as CalendarIcon } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
@@ -7,71 +8,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
+import { cn, formatLocalDate, formatLocalTime, toUTCDate } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import StatusIndicator from "@/components/dashboard/StatusIndicator";
 import { Database } from "@/lib/database.types";
-import { supabase } from "@/lib/supabase";
-import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts';
+import { sensorService } from "@/lib/sensorService";
+import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import ZoomableWaterLevelChart from "@/components/dashboard/ZoomableWaterLevelChart";
-
-// Helper function to convert data for ZoomableWaterLevelChart
-const convertChartDataForZoomable = (data: ChartDataPoint[]): { date: string; value: number }[] => {
-  // If there are multiple sensors, we'll combine their data points
-  const allPoints = data.flatMap(sensor => 
-    sensor.data.map(point => ({
-      date: point.date,
-      value: point.value,
-      sensor: sensor.id
-    }))
-  );
-
-  // Group by time and calculate average
-  const groupedPoints = allPoints.reduce((acc, point) => {
-    if (!acc[point.date]) {
-      acc[point.date] = { sum: point.value, count: 1 };
-    } else {
-      acc[point.date].sum += point.value;
-      acc[point.date].count += 1;
-    }
-    return acc;
-  }, {} as Record<string, { sum: number; count: number }>);
-
-  return Object.entries(groupedPoints)
-    .map(([date, { sum, count }]) => ({
-      date,
-      value: Math.round(sum / count)
-    }))
-    .sort((a, b) => a.date.localeCompare(b.date));
-};
+import { useRealtime } from "@/hooks/use-realtime";
 
 type Tables = Database['public']['Tables'];
-type WaterReading = Tables['water_level_readings']['Row'];
-type Sensor = Tables['sensors']['Row'];
-type WaterStatus = "normal" | "warning" | "siaga" | "danger";
-
-interface ReadingWithSensor extends WaterReading {
-  sensors: Sensor | null;
-  status: WaterStatus;
-}
-
-const getStatus = (waterLevel: number): WaterStatus => {
-  if (waterLevel >= 70) return "danger";
-  if (waterLevel >= 50) return "siaga";
-  if (waterLevel >= 30) return "warning";
-  return "normal";
+type WaterReading = Tables['water_level_readings']['Row'] & {
+  sensors: Tables['sensors']['Row'] | null;
 };
-
-type ChartPoint = {
-  date: string;
-  value: number;
-};
-
-interface ChartDataPoint {
-  id: string;
-  color: string;
-  data: ChartPoint[];
-}
+type WaterStatus = Database['public']['Enums']['sensor_status'];
 
 const History = () => {
   const [activeTab, setActiveTab] = useState("chart");
@@ -81,181 +31,81 @@ const History = () => {
   const [status, setStatus] = useState<string>("all");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [readings, setReadings] = useState<ReadingWithSensor[]>([]);
-  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
-  const [statusDistribution, setStatusDistribution] = useState<{ status: WaterStatus; count: number }[]>([]);
-  const [locationDistribution, setLocationDistribution] = useState<{ location: string; readings: number }[]>([]);
+  const [readings, setReadings] = useState<WaterReading[]>([]);
   const [locations, setLocations] = useState<string[]>([]);
-  const [locationData, setLocationData] = useState<Array<{
-    location: string;
-    data: Array<{
-      name: string;
-      value: number;
-      color: string;
-    }>;
-  }>>([]);
-  // Fetch locations when component mounts
-  useEffect(() => {
-    const fetchLocations = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('sensors')
-          .select('location')
-          .eq('network_status', true);
+  const [statusDistribution, setStatusDistribution] = useState<{ status: WaterStatus; count: number }[]>([]);
 
-        if (error) throw error;
+  // Handle real-time water reading updates
+  useRealtime<WaterReading>({
+    table: 'water_level_readings',
+    onData: (payload) => {
+      if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+        const readingDate = startOfDay(new Date(payload.new.reading_time)).getTime();
+        const selectedDateStart = startOfDay(selectedDate).getTime();
         
-        // Get unique locations with proper typing
-        const uniqueLocations = [...new Set(data.map(item => item.location as string))].sort();
-        setLocations(uniqueLocations);
-      } catch (err) {
-        console.error('Error fetching locations:', err);
-      }
-    };
-
-    fetchLocations();
-  }, []);
-
-  useEffect(() => {
-  const processChartData = (readings: ReadingWithSensor[]) => {
-    // Group readings by sensor and time
-    const groupedBySensor = readings.reduce((acc, reading) => {
-      const sensorName = reading.sensors?.name || 'Unknown Sensor';
-      if (!acc[sensorName]) {
-        acc[sensorName] = {};
-      }
-      
-      const hour = format(new Date(reading.reading_time), 'HH:00');
-      if (!acc[sensorName][hour]) {
-        acc[sensorName][hour] = { sum: reading.water_level, count: 1 };
-      } else {
-        acc[sensorName][hour].sum += reading.water_level;
-        acc[sensorName][hour].count += 1;
-      }
-      return acc;
-    }, {} as Record<string, Record<string, { sum: number; count: number }>>);
-
-    // Convert to chart data format for each sensor
-    const chartData = Object.entries(groupedBySensor).map(([sensorName, hourlyData]) => ({
-      id: sensorName,
-      color: sensorName.includes('Jembatan') ? '#0EA5E9' : '#10B981',
-      data: Object.entries(hourlyData)
-        .map(([hour, data]) => ({
-          date: hour,
-          value: Math.round(data.sum / data.count)
-        }))
-        .sort((a, b) => a.date.localeCompare(b.date))
-    }));
-
-      setChartData(chartData);
-    };
-
-  const processDistributions = (readings: ReadingWithSensor[]) => {
-      // Calculate status distribution
-      const statusCounts = readings.reduce((acc, reading) => {
-        acc[reading.status] = (acc[reading.status] || 0) + 1;
-        return acc;
-      }, {} as Record<WaterStatus, number>);
-
-      setStatusDistribution([
-        { status: "normal", count: statusCounts.normal || 0 },
-        { status: "warning", count: statusCounts.warning || 0 },
-        { status: "siaga", count: statusCounts.siaga || 0 },
-        { status: "danger", count: statusCounts.danger || 0 }
-      ]);
-
-      // Process location data with time-based distribution
-      const locationGroups = readings.reduce((acc, reading) => {
-        const location = reading.sensors?.location || 'Unknown';
-        if (!acc[location]) {
-          acc[location] = {
-            normal: 0,
-            warning: 0,
-            siaga: 0,
-            danger: 0
-          };
+        if (readingDate === selectedDateStart) {
+          setReadings(prev => {
+            const newReadings = [...prev];
+            const index = newReadings.findIndex(r => r.id === payload.new.id);
+            if (index >= 0) {
+              newReadings[index] = payload.new;
+            } else {
+              newReadings.push(payload.new);
+            }
+            return newReadings.sort((a, b) => 
+              new Date(a.reading_time).getTime() - new Date(b.reading_time).getTime()
+            );
+          });
         }
-        // Calculate duration until next reading
-        const currentTime = new Date(reading.reading_time);
-        const nextReading = readings.find(r => 
-          r.sensors?.location === location && 
-          new Date(r.reading_time) > currentTime
-        );
-        
-        const hours = nextReading 
-          ? Math.max(1, Math.round((new Date(nextReading.reading_time).getTime() - currentTime.getTime()) / (1000 * 60 * 60)))
-          : 1; // Default to 1 hour if it's the last reading
-        
-        acc[location][reading.status] += hours;
-        return acc;
-      }, {} as Record<string, Record<WaterStatus, number>>);
+      }
+    }
+  });
 
-      // Convert to location chart format
-      const locationData = Object.entries(locationGroups).map(([location, counts]) => ({
-        location,
-        data: [
-          { name: 'Normal', value: counts.normal, color: '#10B981' },
-          { name: 'Waspada', value: counts.warning, color: '#FBBF24' },
-          { name: 'Siaga', value: counts.siaga, color: '#F97316' },
-          { name: 'Bahaya', value: counts.danger, color: '#EF4444' }
-        ]
-      }));
-
-      setLocationData(locationData);
-
-      // Set traditional location distribution
-      setLocationDistribution(
-        Object.entries(locationGroups).map(([location, counts]) => ({
-          location,
-          readings: Object.values(counts).reduce((sum, count) => sum + count, 0)
-        })).sort((a, b) => b.readings - a.readings)
-      );
-    };
-
-    const fetchReadings = async () => {
+  // Fetch locations and readings when component mounts or filters change
+  useEffect(() => {
+    const fetchData = async () => {
       try {
         setLoading(true);
-        const start = startOfDay(selectedDate);
-        const end = endOfDay(selectedDate);
-        
-        let query = supabase
-          .from('water_level_readings')
-          .select('*, sensors(name, location)')
-          .gte('reading_time', start.toISOString())
-          .lte('reading_time', end.toISOString())
-          .order('reading_time', { ascending: true });
+        setError(null);
 
-        if (location && location !== 'all') {
-          query = query.like('sensors.location', `%${location}%`);
+        // Fetch locations if not already loaded
+        if (locations.length === 0) {
+          const locationsData = await sensorService.getLocations();
+          setLocations(locationsData);
         }
 
-        const { data, error } = await query;
-
-        if (error) throw error;
+        // Fetch readings for the selected date
+        const start = toUTCDate(startOfDay(selectedDate));
+        const end = toUTCDate(endOfDay(selectedDate));
+        const readings = await sensorService.getReadingsByDateRange(start, end, location, status);
         
-        const readingsWithStatus = (data as ReadingWithSensor[]).map(reading => ({
-          ...reading,
-          status: getStatus(reading.water_level)
-        }));
-
-        // Process data for all visualizations
-        processChartData(readingsWithStatus);
-        processDistributions(readingsWithStatus);
-        processLocationData(readingsWithStatus);
-
-        if (status && status !== 'all') {
-          setReadings(readingsWithStatus.filter(r => r.status === status));
-        } else {
-          setReadings(readingsWithStatus);
+        if (readings.length === 0) {
+          setError('Tidak ada data untuk tanggal yang dipilih');
         }
+
+        // Calculate status distribution
+        const statusCounts = readings.reduce((acc, reading) => {
+          acc[reading.status] = (acc[reading.status] || 0) + 1;
+          return acc;
+        }, {} as Record<WaterStatus, number>);
+
+        setStatusDistribution([
+          { status: "normal", count: statusCounts.normal || 0 },
+          { status: "warning", count: statusCounts.warning || 0 },
+          { status: "siaga", count: statusCounts.siaga || 0 },
+          { status: "danger", count: statusCounts.danger || 0 }
+        ]);
+
+        setReadings(readings);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch readings');
+        console.error('Error fetching data:', err);
+        setError(err instanceof Error ? err.message : 'Gagal memuat data');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchReadings();
+    fetchData();
   }, [selectedDate, location, status]);
 
   const handleResetFilters = () => {
@@ -263,13 +113,33 @@ const History = () => {
     setStatus("all");
   };
 
-  if (loading) return <div className="p-4">Loading readings...</div>;
-  if (error) return <div className="p-4 text-red-500">Error: {error}</div>;
-  
-  const totalReadings = readings.length;
+  // Process chart data
+  const chartData = readings
+    .filter(reading => reading && typeof reading.water_level === 'number')
+    .map(reading => {
+      const utc = new Date(reading.reading_time);
+      const hours = utc.getUTCHours().toString().padStart(2, '0');
+      const minutes = utc.getUTCMinutes().toString().padStart(2, '0');
+      return {
+        date: `${hours}:${minutes}`,
+        value: Math.round(reading.water_level)
+      };
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p>Memuat data...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Riwayat</h1>
         <div className="w-[240px]">
@@ -283,26 +153,32 @@ const History = () => {
                 )}
               >
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {selectedDate ? format(selectedDate, "PPP") : <span>Pilih tanggal</span>}
+                {format(selectedDate, "dd MMMM yyyy", { locale: id })}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0">
+            <PopoverContent align="end">
               <Calendar
                 mode="single"
                 selected={selectedDate}
                 onSelect={(date) => date && setSelectedDate(date)}
-                initialFocus
+                locale={id}
               />
             </PopoverContent>
           </Popover>
         </div>
       </div>
-      
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded relative">
+          {error}
+        </div>
+      )}
+
       <div className="mb-6">
         <div className="flex space-x-4 mb-4">
           <button 
             onClick={() => setActiveTab("chart")}
-            className={`px-4 py-2 rounded-lg ${activeTab === "chart" ? "bg-ews-blue text-white" : "bg-gray-100"}`}
+            className={`px-4 py-2 rounded-lg ${activeTab === "chart" ? "bg-blue-600 text-white" : "bg-gray-100"}`}
           >
             Grafik Ketinggian Air
           </button>
@@ -320,13 +196,13 @@ const History = () => {
                 <CardHeader>
                   <CardTitle>Grafik Ketinggian Air</CardTitle>
                   <CardDescription>
-                    Data ketinggian air per jam pada {format(selectedDate, "dd MMMM yyyy")}
+                    Data ketinggian air pada {format(selectedDate, "dd MMMM yyyy", { locale: id })}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="h-[400px]">
                     <ZoomableWaterLevelChart
-                      data={convertChartDataForZoomable(chartData)}
+                      data={chartData}
                       scrollable={true}
                     />
                   </div>
@@ -355,7 +231,7 @@ const History = () => {
                               value: count,
                               label: `${status === 'warning' ? 'Waspada' : 
                                       status === 'siaga' ? 'Siaga' :
-                                      status === 'danger' ? 'Bahaya' : 'Normal'} ${totalReadings > 0 ? Math.round((count / totalReadings) * 100) : 0}%`
+                                      status === 'danger' ? 'Bahaya' : 'Normal'} ${readings.length > 0 ? Math.round((count / readings.length) * 100) : 0}%`
                             }))}
                             cx="50%"
                             cy="50%"
@@ -396,7 +272,7 @@ const History = () => {
                             <span className="font-medium">{count} kejadian</span>
                           </div>
                           <span className="text-muted-foreground">
-                            {totalReadings > 0 ? Math.round((count / totalReadings) * 100) : 0}%
+                            {readings.length > 0 ? Math.round((count / readings.length) * 100) : 0}%
                           </span>
                         </div>
                       ))}
@@ -411,7 +287,7 @@ const History = () => {
                 <CardHeader>
                   <CardTitle>Riwayat Ketinggian Air</CardTitle>
                   <CardDescription>
-                    Data ketinggian air per sensor pada {format(selectedDate, "dd MMMM yyyy")}
+                    Data ketinggian air pada {format(selectedDate, "dd MMMM yyyy", { locale: id })}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
@@ -482,8 +358,8 @@ const History = () => {
                                   <StatusIndicator status={reading.status} pulseAnimation={false} />
                                 </TableCell>
                                 <TableCell>{reading.sensors?.location}</TableCell>
-                                <TableCell>{format(new Date(reading.reading_time), 'yyyy-MM-dd')}</TableCell>
-                                <TableCell>{format(new Date(reading.reading_time), 'HH:mm:ss')}</TableCell>
+                                <TableCell>{format(new Date(reading.reading_time), "dd MMMM yyyy", { locale: id })}</TableCell>
+                                <TableCell>{format(new Date(reading.reading_time), "HH:mm:ss", { locale: id })}</TableCell>
                                 <TableCell className="text-right font-medium">{reading.water_level}</TableCell>
                               </TableRow>
                             ))
@@ -509,47 +385,3 @@ const History = () => {
 };
 
 export default History;
-
-// Helper function to calculate hours between timestamps
-const getHoursBetween = (start: Date, end: Date) => {
-  return Math.max(1, Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60)));
-};
-
-// Helper function to process location data
-const processLocationData = (readings: ReadingWithSensor[]) => {
-  const locationGroups = readings.reduce((acc, reading) => {
-    const location = reading.sensors?.location || 'Unknown';
-    if (!acc[location]) {
-      acc[location] = {
-        normal: 0,
-        warning: 0,
-        siaga: 0,
-        danger: 0
-      };
-    }
-    // If this is the first reading for this location and status, get hours until next reading
-    const currentTime = new Date(reading.reading_time);
-    const nextReading = readings.find(r => 
-      r.sensors?.location === location && 
-      new Date(r.reading_time) > currentTime
-    );
-    
-    const hours = nextReading 
-      ? getHoursBetween(currentTime, new Date(nextReading.reading_time))
-      : 1; // Default to 1 hour if it's the last reading
-    
-    acc[location][reading.status] += hours;
-    return acc;
-  }, {} as Record<string, Record<WaterStatus, number>>);
-
-  // Convert to chart format
-  return Object.entries(locationGroups).map(([location, counts]) => ({
-    location,
-    data: [
-      { name: 'Normal', value: counts.normal, color: '#10B981' },
-      { name: 'Waspada', value: counts.warning, color: '#FBBF24' },
-      { name: 'Siaga', value: counts.siaga, color: '#F97316' },
-      { name: 'Bahaya', value: counts.danger, color: '#EF4444' }
-    ]
-  }));
-};

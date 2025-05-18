@@ -1,59 +1,165 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { sensorService } from "@/lib/sensorService";
 import { Database } from "@/lib/database.types";
 import { useRealtime } from "@/hooks/use-realtime";
 import StatCard from "@/components/dashboard/StatCard";
-import WaterLevelChart from "@/components/dashboard/WaterLevelChart";
+import ZoomableWaterLevelChart from "@/components/dashboard/ZoomableWaterLevelChart";
 import SensorCard from "@/components/sensors/SensorCard";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Droplet, Signal } from "lucide-react";
+import { format } from "date-fns";
+import { id as idLocale } from "date-fns/locale";
+import { supabase } from "@/lib/supabase";
 
-type SensorStatus = Database['public']['Views']['current_sensor_status']['Row'];
-type WaterReading = Database['public']['Tables']['water_level_readings']['Row'];
+type Tables = Database['public']['Tables'];
+type SensorStatus = Tables['current_sensor_status']['Row'];
+type WaterReading = Tables['water_level_readings']['Row'];
 
 const Dashboard = () => {
   const [sensors, setSensors] = useState<SensorStatus[]>([]);
   const [waterReadings, setWaterReadings] = useState<WaterReading[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const handleNewReading = useCallback((payload: {
+  const [selectedSensorId, setSelectedSensorId] = useState<string | null>(null);
+
+  // Handle real-time sensor status updates
+  const handleSensorUpdate = useCallback((payload: {
+    new: SensorStatus;
+    old: SensorStatus | null;
+    eventType: 'INSERT' | 'UPDATE' | 'DELETE';
+  }) => {
+    console.log('[Sensor Update]', {
+      type: payload.eventType,
+      newData: payload.new,
+      oldData: payload.old
+    });
+    
+    if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+      setSensors(prev => {
+        const index = prev.findIndex(s => s.id === payload.new.id);
+        if (index >= 0) {
+          const newSensors = [...prev];
+          newSensors[index] = payload.new;
+          return newSensors;
+        }
+        return [...prev, payload.new];
+      });
+    } else if (payload.eventType === 'DELETE' && payload.old) {
+      setSensors(prev => prev.filter(s => s.id !== payload.old?.id));
+    }
+  }, []);
+
+  // Handle real-time water reading updates
+  const handleWaterReadingUpdate = useCallback((payload: {
     new: WaterReading;
     old: WaterReading | null;
     eventType: 'INSERT' | 'UPDATE' | 'DELETE';
   }) => {
-    if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-      setWaterReadings(prev => [...prev, payload.new].slice(-100));
-    } else if (payload.eventType === 'DELETE' && payload.old) {
-      setWaterReadings(prev => prev.filter(r => r.id !== payload.old?.id));
-    }
-  }, []);
+    console.log('[Water Reading Update]', {
+      type: payload.eventType,
+      sensorId: payload.new.sensor_id,
+      selectedSensorId,
+      waterLevel: payload.new.water_level,
+      timestamp: payload.new.reading_time
+    });
 
-  // Use the realtime hook for water level readings
-  useRealtime<WaterReading>({
-    table: 'water_level_readings',
-    onData: handleNewReading
+    if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+      setWaterReadings(prev => {
+        console.log('[Current Water Readings]', {
+          count: prev.length,
+          latest: prev[prev.length - 1]
+        });
+
+        const newReadings = [...prev, payload.new];
+        // Keep last 24 hours of data
+        const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const filtered = newReadings
+          .filter(r => {
+            const isValid = new Date(r.reading_time) > cutoff;
+            if (!isValid) {
+              console.log('[Filtered out old reading]', {
+                readingTime: r.reading_time,
+                cutoff: cutoff.toISOString()
+              });
+            }
+            return isValid;
+          })
+          .sort((a, b) => new Date(a.reading_time).getTime() - new Date(b.reading_time).getTime())
+          .slice(-100); // Keep last 100 readings max
+
+        console.log('[Updated Water Readings]', {
+          originalCount: newReadings.length,
+          filteredCount: filtered.length,
+          firstReading: filtered[0],
+          lastReading: filtered[filtered.length - 1]
+        });
+
+        return filtered;
+      });
+    }
+  }, [selectedSensorId]);
+
+  // Use real-time subscriptions
+  useRealtime<SensorStatus>({
+    table: 'current_sensor_status',
+    onData: handleSensorUpdate
   });
 
+  useRealtime<WaterReading>({
+    table: 'water_level_readings',
+    onData: handleWaterReadingUpdate,
+    filter: selectedSensorId ? 'sensor_id' : undefined,
+    filterValue: selectedSensorId || undefined
+  });
+
+  // Initial data fetch
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        // Get all sensors with their current status
-        const sensorsData = await sensorService.getAllSensors();
-        setSensors(sensorsData);
+        setLoading(true);
+        setError(null);
 
-        // Get latest water readings for the chart
-        if (sensorsData.length > 0) {
-          const endTime = new Date();
-          const startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000); // Last 24 hours
-          const readings = await sensorService.getSensorReadings(
-            sensorsData[0].id,
-            startTime,
-            endTime
-          );
-          setWaterReadings(readings);
+        // Get current sensor status for average water level
+        const { data: sensorData, error: sensorError } = await supabase
+          .from('current_sensor_status')
+          .select('*');
+
+        if (sensorError) {
+          console.error('[Sensor Error]', sensorError);
+          throw sensorError;
         }
+
+        console.log('[Sensor Data]', {
+          count: sensorData?.length,
+          sensors: sensorData
+        });
+
+        setSensors(sensorData || []);
+
+        // Get water level readings for chart
+        const endTime = new Date();
+        const startTime = new Date(endTime.getTime() - 24 * 60 * 60 * 1000);
+
+        const { data: readings, error: readingsError } = await supabase
+          .from('water_level_readings')
+          .select('id, sensor_id, water_level, status, reading_time, created_at')
+          .order('reading_time', { ascending: true });
+
+        if (readingsError) {
+          console.error('[Readings Error]', readingsError);
+          throw readingsError;
+        }
+
+        console.log('[Water Readings]', {
+          count: readings?.length,
+          sample: readings?.slice(0, 3)
+        });
+
+        setWaterReadings(readings || []);
+
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch dashboard data');
+        console.error('[Error]', err);
+        setError(err instanceof Error ? err.message : 'Gagal memuat data');
       } finally {
         setLoading(false);
       }
@@ -62,42 +168,145 @@ const Dashboard = () => {
     fetchDashboardData();
   }, []);
 
-  // Calculate statistics
-  const averageWaterLevel = sensors.reduce((acc, s) => acc + (s.water_level || 0), 0) / sensors.length;
+  // Calculate average water level from current sensor status
+  const averageWaterLevel = useMemo(() => {
+    const validSensors = sensors.filter(s => s.water_level !== null && s.water_level !== undefined);
+    
+    console.log('[Average Calculation]', {
+      totalSensors: sensors.length,
+      validSensors: validSensors.length,
+      waterLevels: validSensors.map(s => s.water_level)
+    });
 
-  if (loading) return <div className="p-4">Loading dashboard data...</div>;
-  if (error) return <div className="p-4 text-red-500">Error: {error}</div>;
+    if (validSensors.length === 0) return 0;
+    
+    const sum = validSensors.reduce((acc, sensor) => acc + sensor.water_level, 0);
+    return sum / validSensors.length;
+  }, [sensors]);
+
+  // Process chart data with better debugging
+  const chartData = useMemo(() => {
+    if (!waterReadings.length) {
+      console.log('[Chart Data] No water readings available');
+      return [];
+    }
+
+    console.log('[Processing Chart Data]', {
+      totalReadings: waterReadings.length,
+      firstReading: waterReadings[0],
+      lastReading: waterReadings[waterReadings.length - 1]
+    });
+
+    const processed = waterReadings
+      .filter(reading => {
+        const isValid = reading && typeof reading.water_level === 'number';
+        if (!isValid) {
+          console.log('[Invalid Reading]', reading);
+        }
+        return isValid;
+      })
+      .map(reading => {
+        const utc = new Date(reading.reading_time);
+        const hours = utc.getUTCHours().toString().padStart(2, '0');
+        const minutes = utc.getUTCMinutes().toString().padStart(2, '0');
+        return {
+          date: `${hours}:${minutes}`,
+          value: Math.round(reading.water_level)
+        };
+      })
+      .sort((a, b) => {
+        const timeA = a.date.split(':').map(Number);
+        const timeB = b.date.split(':').map(Number);
+        return (timeA[0] * 60 + timeA[1]) - (timeB[0] * 60 + timeB[1]);
+      });
+
+    console.log('[Final Chart Data]', {
+      points: processed.length,
+      sample: processed.slice(0, 3)
+    });
+
+    return processed;
+  }, [waterReadings]);
+
+  // Debug: Log when chart data changes
+  useEffect(() => {
+    console.log('[Chart Data Updated]', {
+      hasData: chartData.length > 0,
+      points: chartData.length
+    });
+  }, [chartData]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p>Memuat data...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center max-w-md mx-auto p-6 bg-red-50 rounded-lg">
+          <p className="text-red-600 mb-4">{error}</p>
+          <p className="text-sm text-gray-600">
+            Silakan coba lagi nanti atau hubungi administrator sistem.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 p-6">
       {/* Stats Overview */}
       <div className="grid gap-4 md:grid-cols-2">
         <StatCard
-          title="Average Water Level"
-          value={`${averageWaterLevel.toFixed(1)} cm`}
+          title="Rata-rata Ketinggian Air"
+          value={averageWaterLevel > 0 ? `${averageWaterLevel.toFixed(1)} cm` : 'Tidak ada data'}
           icon={<Droplet className="h-4 w-4" />}
-          description="Across all sensors"
+          description={sensors.length > 0 ? "Rata-rata semua sensor aktif" : "Belum ada sensor aktif"}
         />
         <StatCard
-          title="Active Sensors"
-          value={sensors.length}
+          title="Sensor Aktif"
+          value={sensors.length.toString()}
           icon={<Signal className="h-4 w-4" />}
-          description="Total connected sensors"
+          description={sensors.length > 0 ? "Total sensor terhubung" : "Tidak ada sensor aktif"}
         />
       </div>
 
       {/* Water Level Chart */}
-      <Card className="p-4">
-        <WaterLevelChart
-          data={waterReadings.map(reading => ({
-            time: new Date(reading.reading_time).toLocaleTimeString('id-ID', {
-              hour: '2-digit',
-              minute: '2-digit'
-            }),
-            sensor1: reading.water_level
-          }))}
-          title="Water Level Trends (Last 24 Hours)"
-        />
+      <Card>
+        <CardHeader>
+          <CardTitle>Grafik Ketinggian Air</CardTitle>
+          <CardDescription>
+            Data ketinggian air dalam 24 jam terakhir
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[400px]">
+            {chartData.length > 0 ? (
+              <ZoomableWaterLevelChart
+                data={chartData}
+                scrollable={true}
+                description={`Data ketinggian air (${chartData.length} data)`}
+              />
+            ) : (
+              <div className="h-full flex flex-col items-center justify-center text-gray-500">
+                <p className="text-lg mb-2">Belum ada data pembacaan</p>
+                <p className="text-sm">
+                  Menunggu data dari sensor...
+                </p>
+                <p className="text-xs mt-2 text-gray-400">
+                  Pastikan sensor terhubung dan mengirim data
+                </p>
+              </div>
+            )}
+          </div>
+        </CardContent>
       </Card>
 
       {/* Sensor Cards */}
@@ -105,6 +314,11 @@ const Dashboard = () => {
         {sensors.map((sensor) => (
           <SensorCard key={sensor.id} {...sensor} />
         ))}
+        {sensors.length === 0 && (
+          <div className="col-span-full text-center py-8 text-gray-500">
+            Tidak ada sensor yang aktif
+          </div>
+        )}
       </div>
     </div>
   );

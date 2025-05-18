@@ -1,51 +1,75 @@
-
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import type { Database } from "@/lib/database.types";
+
+type SensorStatus = Database['public']['Enums']['sensor_status'];
 
 interface StatusIndicatorProps {
-  status: "normal" | "warning" | "siaga" | "danger";
+  status: SensorStatus;
   pulseAnimation?: boolean;
 }
 
 const StatusIndicator = ({ status, pulseAnimation = true }: StatusIndicatorProps) => {
-  const getStatusColor = () => {
+  const getStatusConfig = (status: SensorStatus) => {
     switch (status) {
-      case "normal":
-        return "bg-ews-green";
-      case "warning":
-        return "bg-ews-yellow";
-      case "siaga":
-        return "bg-orange-500";
-      case "danger":
+      case 'normal':
+        return {
+          color: 'bg-green-500',
+          text: 'Normal',
+          textColor: 'text-green-700',
+          bgColor: 'bg-green-50'
+        };
+      case 'warning':
+        return {
+          color: 'bg-yellow-500',
+          text: 'Waspada',
+          textColor: 'text-yellow-700',
+          bgColor: 'bg-yellow-50'
+        };
+      case 'siaga':
+        return {
+          color: 'bg-orange-500',
+          text: 'Siaga',
+          textColor: 'text-orange-700',
+          bgColor: 'bg-orange-50'
+        };
+      case 'danger':
+        return {
+          color: 'bg-red-500',
+          text: 'Bahaya',
+          textColor: 'text-red-700',
+          bgColor: 'bg-red-50'
+        };
       default:
-        return "bg-ews-red";
+        return {
+          color: 'bg-gray-500',
+          text: 'Unknown',
+          textColor: 'text-gray-700',
+          bgColor: 'bg-gray-50'
+        };
     }
   };
 
-  const getStatusText = () => {
-    switch (status) {
-      case "normal":
-        return "Normal";
-      case "warning":
-        return "Waspada";
-      case "siaga":
-        return "Siaga";
-      case "danger":
-      default:
-        return "Bahaya";
-    }
-  };
+  const config = getStatusConfig(status);
 
   return (
-    <div className="flex items-center">
-      <div
+    <Badge
+      variant="outline"
+      className={cn(
+        "flex items-center gap-2 px-2 py-0.5 rounded-full",
+        config.bgColor,
+        config.textColor
+      )}
+    >
+      <span
         className={cn(
-          "w-3 h-3 rounded-full mr-2",
-          getStatusColor(),
-          pulseAnimation && "animate-pulse-slow"
+          "h-2 w-2 rounded-full",
+          config.color,
+          pulseAnimation && "animate-pulse"
         )}
-      ></div>
-      <span className="text-sm font-medium">{getStatusText()}</span>
-    </div>
+      />
+      <span className="text-xs font-medium">{config.text}</span>
+    </Badge>
   );
 };
 

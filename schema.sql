@@ -66,6 +66,26 @@ CREATE TABLE current_sensor_status (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Create view for current sensor status
+CREATE OR REPLACE VIEW current_sensor_status AS
+SELECT 
+    s.id,
+    s.name,
+    s.location,
+    s.network_status,
+    s.updated_at,
+    COALESCE(wr.water_level, 0) as water_level,
+    COALESCE(wr.status, 'normal'::sensor_status) as status,
+    COALESCE(wr.reading_time, NOW()) as reading_time
+FROM sensors s
+LEFT JOIN LATERAL (
+    SELECT water_level, status, reading_time 
+    FROM water_level_readings 
+    WHERE sensor_id = s.id 
+    ORDER BY reading_time DESC 
+    LIMIT 1
+) wr ON true;
+
 -- Indexes
 CREATE INDEX idx_water_level_readings_sensor_time ON water_level_readings(sensor_id, reading_time);
 CREATE INDEX idx_water_level_readings_status ON water_level_readings(status);
