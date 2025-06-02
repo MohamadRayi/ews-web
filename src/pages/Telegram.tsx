@@ -5,7 +5,7 @@ import { QRCodeSVG } from 'qrcode.react';
 
 const Telegram = () => {
   // In a real app, this would be dynamically fetched
-  const telegramLink = "https://t.me/+TlGdohNJUvplNmI1";
+  const telegramLink = "https://t.me/+X-kMJhX919dmYWM1";
   
   return (
     <div className="space-y-6">
@@ -76,6 +76,19 @@ const Telegram = () => {
                   Bot akan mengirim notifikasi secara otomatis saat terjadi perubahan status. 
                   Pastikan notifikasi untuk grup diaktifkan di pengaturan Telegram Anda.
                 </p>
+              </div>
+
+              <div className="mt-4">
+                <a 
+                  href="https://drive.google.com/file/d/1bW6RI6d5t-B5b55CE5tPaLjkDdPR78nc/view?usp=sharing" 
+                  target="_blank" 
+                  rel="noopener noreferrer" 
+                  className="w-full"
+                >
+                  <Button className="w-full bg-[#0088cc] hover:bg-[#0077b5]">
+                    Petunjuk Penggunaan Bot
+                  </Button>
+                </a>
               </div>
             </div>
           </CardContent>

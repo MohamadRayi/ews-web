@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import StatusIndicator from "@/components/dashboard/StatusIndicator";
 import ZoomableWaterLevelChart from "@/components/dashboard/ZoomableWaterLevelChart";
 import { Clock, Droplet, Signal, AlertCircle } from "lucide-react";
-import { format, startOfDay, endOfDay, isToday, isSameDay, parseISO } from "date-fns";
+import { format, startOfDay, endOfDay, isToday as isTodayDateFns, isSameDay, parseISO } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { supabase } from "@/lib/supabase";
 
@@ -63,7 +63,7 @@ export default function SensorDetail() {
       });
       
       setWaterReadings(readings || []);
-      setIsCurrentDate(isToday(date));
+      setIsCurrentDate(isTodayDateFns(date));
     } catch (err) {
       console.error("Error fetching readings:", err);
     }
@@ -237,15 +237,6 @@ export default function SensorDetail() {
                 <p className="text-sm font-medium">Ketinggian Air</p>
                 <p className="text-2xl font-bold">
                   {sensor.water_level ? `${sensor.water_level} cm` : '-'}
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Signal className="h-4 w-4" />
-              <div>
-                <p className="text-sm font-medium">Status Koneksi</p>
-                <p className="text-2xl font-bold">
-                  {sensorDetails.network_status ? 'Online' : 'Offline'}
                 </p>
               </div>
             </div>

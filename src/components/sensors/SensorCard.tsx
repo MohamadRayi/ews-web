@@ -36,10 +36,6 @@ const SensorCard = ({
               <div className="text-sm font-medium">Ketinggian Air</div>
               <div>{water_level ? `${water_level} cm` : '-'}</div>
             </div>
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-medium">Status Koneksi</div>
-              <Signal className="h-4 w-4" />
-            </div>
             <div className="text-xs text-muted-foreground">
               Pembaruan terakhir: {reading_time ? (() => {
                 const date = new Date(reading_time);

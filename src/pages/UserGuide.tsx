@@ -3,10 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 
 const UserGuide = () => {
-  // Ganti URL ini dengan URL PDF dari Google Drive Anda
-  const pdfUrl = "https://drive.google.com/file/d/YOUR_FILE_ID/preview";
-  const downloadUrl = "https://drive.google.com/uc?export=download&id=YOUR_FILE_ID";
-
+  const pdfUrl = "https://drive.google.com/file/d/1B82qtU4prtSFA7T1qtT16mjKWqblmd1z/preview";
+  const downloadUrl = "https://drive.google.com/uc?export=download&id=1B82qtU4prtSFA7T1qtT16mjKWqblmd1z";
+  
   return (
     <div className="space-y-6">
       <h1 className="text-3xl font-bold">Panduan Pengguna</h1>
