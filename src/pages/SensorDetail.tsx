@@ -26,44 +26,23 @@ export default function SensorDetail() {
   const [waterReadings, setWaterReadings] = useState<WaterReading[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [lastActiveDate, setLastActiveDate] = useState<Date>(new Date());
-  const [isCurrentDate, setIsCurrentDate] = useState<boolean>(true);
 
-  // Function to fetch readings for a specific date
-  const fetchReadingsForDate = useCallback(async (date: Date, isToday: boolean, currentSensor?: SensorStatus | null) => {
+  // Function to fetch readings for today
+  const fetchReadingsForToday = useCallback(async (currentSensor?: SensorStatus | null) => {
     if (!id) return;
-    
     try {
-      // Get data for the specific date
-      const dayStart = startOfDay(date);
-      const dayEnd = endOfDay(date);
-      
-      console.log('[Fetching readings]', {
-        sensorId: id,
-        date: date.toISOString(),
-        start: dayStart.toISOString(),
-        end: dayEnd.toISOString(),
-        isToday
-      });
-      
+      const now = new Date();
+      const dayStartUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
+      const dayEndUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
       const { data: readings, error } = await supabase
         .from('water_level_readings')
         .select('*, sensors(*)')
         .eq('sensor_id', id)
-        .gte('reading_time', dayStart.toISOString())
-        .lte('reading_time', dayEnd.toISOString())
+        .gte('reading_time', dayStartUTC.toISOString())
+        .lte('reading_time', dayEndUTC.toISOString())
         .order('reading_time', { ascending: true });
-
       if (error) throw error;
-      
-      console.log('[Readings fetched]', {
-        count: readings?.length,
-        firstReading: readings?.[0],
-        lastReading: readings?.[readings?.length - 1]
-      });
-      
       setWaterReadings(readings || []);
-      setIsCurrentDate(isTodayDateFns(date));
     } catch (err) {
       console.error("Error fetching readings:", err);
     }
@@ -71,39 +50,29 @@ export default function SensorDetail() {
 
   useEffect(() => {
     let mounted = true;
-
     if (!id) {
       navigate('/');
       return;
     }
-
     const fetchSensorData = async () => {
       try {
         setLoading(true);
         setError(null);
-
         const [sensorStatus, sensorData] = await Promise.all([
           sensorService.getSensorById(id),
           sensorService.getSensorDetails(id)
         ]);
-
         if (!mounted) return;
-
         if (!sensorStatus || !sensorData) {
           setError('Sensor tidak ditemukan');
           return;
         }
-
         setSensor(sensorStatus);
         setSensorDetails(sensorData);
-        
-        // Always fetch current data
-        await fetchReadingsForDate(new Date(), true, sensorStatus);
-        
+        await fetchReadingsForToday(sensorStatus);
         if (!mounted) return;
       } catch (err) {
         if (mounted) {
-          console.error("Error fetching sensor data:", err);
           setError(err instanceof Error ? err.message : 'Gagal memuat data sensor');
         }
       } finally {
@@ -112,13 +81,11 @@ export default function SensorDetail() {
         }
       }
     };
-
     fetchSensorData();
-
     return () => {
       mounted = false;
     };
-  }, [id, navigate, fetchReadingsForDate]);
+  }, [id, navigate, fetchReadingsForToday]);
 
   // Process readings into chart data
   const chartData = useMemo(() => {
@@ -145,10 +112,10 @@ export default function SensorDetail() {
   }) => {
     if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
       const readingDate = new Date(payload.new.reading_time);
-      const today = new Date();
-      
-      // Only add readings if they are from the same day we're currently viewing
-      if (isSameDay(readingDate, isCurrentDate ? today : lastActiveDate)) {
+      const now = new Date();
+      const readingDayUTC = Date.UTC(readingDate.getUTCFullYear(), readingDate.getUTCMonth(), readingDate.getUTCDate());
+      const todayUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+      if (readingDayUTC === todayUTC) {
         setWaterReadings(prev => {
           const newReadings = [...prev, payload.new];
           return newReadings
@@ -156,7 +123,7 @@ export default function SensorDetail() {
         });
       }
     }
-  }, [isCurrentDate, lastActiveDate]);
+  }, []);
 
   // Handle real-time sensor status updates
   useRealtime<SensorStatus>({
@@ -167,13 +134,11 @@ export default function SensorDetail() {
         setSensor(newSensor);
         
         if (newSensor.reading_time) {
-          const newReadingDate = new Date(newSensor.reading_time);
-          
           // Only update the sensor status, don't add readings
           // Readings will come through the water_level_readings subscription
         }
       }
-    }, [id, isCurrentDate, fetchReadingsForDate]),
+    }, [id]),
     filter: 'id',
     filterValue: id
   });
@@ -265,36 +230,21 @@ export default function SensorDetail() {
         <CardHeader>
           <CardTitle>Grafik Ketinggian Air</CardTitle>
           <CardDescription>
-            Data ketinggian air {sensor.name} pada {format(isCurrentDate ? new Date() : lastActiveDate, "dd MMMM yyyy", { locale: idLocale })}
+            Data ketinggian air {sensor.name} pada {format(new Date(), "dd MMMM yyyy", { locale: idLocale })}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {!isCurrentDate && (
-            <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-md flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-amber-500" />
-              <p className="text-sm text-amber-700">
-                Sensor terakhir aktif pada {format(lastActiveDate, "dd MMMM yyyy", { locale: idLocale })}. Data yang ditampilkan adalah dari tanggal tersebut.
-              </p>
-            </div>
-          )}
-          
           <div className="h-[400px]">
             {chartData.length > 0 ? (
               <ZoomableWaterLevelChart
                 data={chartData}
                 scrollable={true}
-                description={`Data ketinggian air pada tanggal ${format(isCurrentDate ? new Date() : lastActiveDate, "dd MMMM yyyy", { locale: idLocale })} (${chartData.length} data)`}
+                description={`Data ketinggian air pada tanggal ${format(new Date(), "dd MMMM yyyy", { locale: idLocale })} (${chartData.length} data)`}
               />
             ) : (
               <div className="h-full flex flex-col items-center justify-center text-gray-500">
-                <p className="text-lg mb-2">
-                  {isCurrentDate 
-                    ? "Belum ada data pembacaan hari ini"
-                    : `Tidak ada data pembacaan untuk tanggal ${format(lastActiveDate, "dd MMMM yyyy", { locale: idLocale })}`}
-                </p>
-                <p className="text-sm">
-                  {isCurrentDate ? "Menunggu data dari sensor..." : "Sensor tidak aktif pada tanggal tersebut"}
-                </p>
+                <p className="text-lg mb-2">Belum ada data pembacaan hari ini</p>
+                <p className="text-sm">Menunggu data dari sensor...</p>
                 {sensor.reading_time && (
                   <p className="text-xs mt-2 text-gray-400">
                     Sensor terakhir aktif {format(new Date(sensor.reading_time), "dd MMMM yyyy HH:mm:ss", { locale: idLocale })}
