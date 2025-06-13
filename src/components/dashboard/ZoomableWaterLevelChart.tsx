@@ -112,7 +112,7 @@ const ZoomableWaterLevelChart = ({
     <ResponsiveContainer width="100%" height="100%">
       <LineChart
         data={chartData}
-        margin={{ top: 5, right: 30, left: 0, bottom: 5 }}
+        margin={{ top: 10, right: 110, left: 10, bottom: 20 }}
       >
         <CartesianGrid 
           strokeDasharray="2 2" 
@@ -132,7 +132,8 @@ const ZoomableWaterLevelChart = ({
             value: `${waterLevels.bahaya.label} (${waterLevels.bahaya.threshold}cm)`,
             position: 'right',
             fill: waterLevels.bahaya.color,
-            fontSize: 12
+            fontSize: 12,
+            offset: 10
           }}
         />
         <ReferenceLine 
@@ -143,7 +144,8 @@ const ZoomableWaterLevelChart = ({
             value: `${waterLevels.siaga.label} (${waterLevels.siaga.threshold}cm)`,
             position: 'right',
             fill: waterLevels.siaga.color,
-            fontSize: 12
+            fontSize: 12,
+            offset: 10
           }}
         />
         <ReferenceLine 
@@ -154,7 +156,8 @@ const ZoomableWaterLevelChart = ({
             value: `${waterLevels.waspada.label} (${waterLevels.waspada.threshold}cm)`,
             position: 'right',
             fill: waterLevels.waspada.color,
-            fontSize: 12
+            fontSize: 12,
+            offset: 10
           }}
         />
         <ReferenceLine 
@@ -165,7 +168,8 @@ const ZoomableWaterLevelChart = ({
             value: `${waterLevels.normal.label} (${waterLevels.normal.threshold}cm)`,
             position: 'right',
             fill: waterLevels.normal.color,
-            fontSize: 12
+            fontSize: 12,
+            offset: 10
           }}
         />
         
@@ -174,9 +178,19 @@ const ZoomableWaterLevelChart = ({
           stroke="#94a3b8"
           fontSize={11}
           tickLine={false}
-          axisLine={false}
-          tickMargin={8}
+          axisLine={true}
+          tickMargin={12}
           minTickGap={50}
+          label={{ 
+            value: 'Waktu (WIB)', 
+            position: 'bottom',
+            offset: 0,
+            style: { 
+              fontSize: '12px',
+              fill: '#64748b',
+              fontFamily: '"Inter", system-ui, sans-serif'
+            }
+          }}
           style={{
             fontSize: '10px',
             fontFamily: '"Inter", system-ui, sans-serif'
@@ -186,12 +200,23 @@ const ZoomableWaterLevelChart = ({
         <YAxis
           domain={yDomain}
           tickCount={8}
-          tickFormatter={(value) => `${value} cm`}
+          tickFormatter={(value) => `${value}`}
           stroke="#94a3b8"
           fontSize={11}
           tickLine={false}
-          axisLine={false}
+          axisLine={true}
           width={50}
+          label={{ 
+            value: 'Ketinggian Air (cm)', 
+            angle: -90, 
+            position: 'insideLeft',
+            offset: 0,
+            style: { 
+              fontSize: '12px',
+              fill: '#64748b',
+              fontFamily: '"Inter", system-ui, sans-serif'
+            }
+          }}
           style={{
             fontSize: '10px',
             fontFamily: '"Inter", system-ui, sans-serif'

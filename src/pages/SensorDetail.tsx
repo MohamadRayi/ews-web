@@ -94,9 +94,9 @@ export default function SensorDetail() {
     return waterReadings
       .filter(r => r && typeof r.water_level === 'number')
       .map(r => {
-        const utc = new Date(r.reading_time);
-        const hours = utc.getUTCHours().toString().padStart(2, '0');
-        const minutes = utc.getUTCMinutes().toString().padStart(2, '0');
+        const readingDate = new Date(r.reading_time);
+        const hours = readingDate.getUTCHours().toString().padStart(2, '0');
+        const minutes = readingDate.getUTCMinutes().toString().padStart(2, '0');
         return {
           date: `${hours}:${minutes}`,
           value: Math.round(r.water_level)
@@ -247,7 +247,14 @@ export default function SensorDetail() {
                 <p className="text-sm">Menunggu data dari sensor...</p>
                 {sensor.reading_time && (
                   <p className="text-xs mt-2 text-gray-400">
-                    Sensor terakhir aktif {format(new Date(sensor.reading_time), "dd MMMM yyyy HH:mm:ss", { locale: idLocale })}
+                    Sensor terakhir aktif {(() => {
+                      const date = new Date(sensor.reading_time);
+                      const formattedDate = format(date, "dd MMMM yyyy", { locale: idLocale });
+                      const hours = date.getUTCHours().toString().padStart(2, '0');
+                      const minutes = date.getUTCMinutes().toString().padStart(2, '0');
+                      const seconds = date.getUTCSeconds().toString().padStart(2, '0');
+                      return `${formattedDate} ${hours}:${minutes}:${seconds}`;
+                    })()}
                   </p>
                 )}
               </div>

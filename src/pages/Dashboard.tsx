@@ -10,6 +10,7 @@ import { Droplet, Signal } from "lucide-react";
 import { format, startOfDay, endOfDay, isSameDay } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { supabase } from "@/lib/supabase";
+import { toUTCDate } from "@/lib/utils";
 
 type Tables = Database['public']['Tables'];
 type SensorStatus = Tables['current_sensor_status']['Row'];
@@ -65,11 +66,13 @@ const Dashboard = () => {
     });
 
     if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-      // Check if the new reading is from today
-      const readingDate = startOfDay(new Date(payload.new.reading_time)).getTime();
-      const todayStart = startOfDay(new Date()).getTime();
+      // Check if the new reading is from today using isSameDay
+      const readingDate = new Date(payload.new.reading_time);
+      const now = new Date();
+      const readingDayUTC = Date.UTC(readingDate.getUTCFullYear(), readingDate.getUTCMonth(), readingDate.getUTCDate());
+      const todayUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
       
-      if (readingDate === todayStart) {
+      if (readingDayUTC === todayUTC) {
         setWaterReadings(prev => {
           const newReadings = [...prev, payload.new];
           return newReadings
@@ -77,7 +80,7 @@ const Dashboard = () => {
         });
       }
     }
-  }, [selectedSensorId]);
+  }, []);
 
   // Use real-time subscriptions
   useRealtime<SensorStatus>({
@@ -109,36 +112,29 @@ const Dashboard = () => {
           throw sensorError;
         }
 
-        console.log('[Sensor Data]', {
-          count: sensorData?.length,
-          sensors: sensorData
-        });
-
         setSensors(sensorData || []);
         
-        // Get only recent water level readings (last 2 hours)
-        const twoHoursAgo = new Date();
-        twoHoursAgo.setHours(twoHoursAgo.getHours() - 2);
+        // Get today's water level readings using UTC
+        const now = new Date();
+        const dayStartUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
+        const dayEndUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
 
-        console.log('[Fetching recent readings]', {
-          since: twoHoursAgo.toISOString()
+        console.log('[Fetching today readings]', {
+          from: dayStartUTC.toISOString(),
+          to: dayEndUTC.toISOString()
         });
 
         const { data: readings, error: readingsError } = await supabase
           .from('water_level_readings')
           .select('id, sensor_id, water_level, status, reading_time, created_at')
-          .gte('reading_time', twoHoursAgo.toISOString())
+          .gte('reading_time', dayStartUTC.toISOString())
+          .lte('reading_time', dayEndUTC.toISOString())
           .order('reading_time', { ascending: true });
 
         if (readingsError) {
           console.error('[Readings Error]', readingsError);
           throw readingsError;
         }
-
-        console.log('[Water Readings]', {
-          count: readings?.length,
-          sample: readings?.slice(0, 3)
-        });
 
         setWaterReadings(readings || []);
 
@@ -191,13 +187,20 @@ const Dashboard = () => {
         return isValid;
       })
       .map(reading => {
-        const utc = new Date(reading.reading_time);
-        const hours = utc.getUTCHours().toString().padStart(2, '0');
-        const minutes = utc.getUTCMinutes().toString().padStart(2, '0');
+        const readingDate = new Date(reading.reading_time);
+        // Format the time as HH:mm using UTC time
+        const hours = readingDate.getUTCHours().toString().padStart(2, '0');
+        const minutes = readingDate.getUTCMinutes().toString().padStart(2, '0');
         return {
           date: `${hours}:${minutes}`,
           value: Math.round(reading.water_level)
         };
+      })
+      // Make sure data is sorted by time
+      .sort((a, b) => {
+        const [aHours, aMinutes] = a.date.split(':').map(Number);
+        const [bHours, bMinutes] = b.date.split(':').map(Number);
+        return (aHours * 60 + aMinutes) - (bHours * 60 + bMinutes);
       });
 
     return processed;
