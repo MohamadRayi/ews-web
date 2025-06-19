@@ -10,6 +10,7 @@ import {
   Area,
   ReferenceLine
 } from "recharts";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface ChartData {
   date: string;
@@ -46,6 +47,8 @@ const ZoomableWaterLevelChart = ({
   description,
   scrollable = false,
 }: ZoomableWaterLevelChartProps) => {
+  const isMobile = useIsMobile();
+  
   // Mengurangi jumlah data point dan menghitung SMA
   const chartData = useMemo(() => {
     const samplingRate = data.length > 100 ? Math.floor(data.length / 100) : 1;
@@ -102,221 +105,229 @@ const ZoomableWaterLevelChart = ({
 
   if (!data.length) {
     return (
-      <div className="h-full flex items-center justify-center">
+      <div className="h-[300px] flex items-center justify-center">
         <p className="text-muted-foreground">Tidak ada data untuk ditampilkan</p>
       </div>
     );
   }
 
   return (
-    <ResponsiveContainer width="100%" height="100%">
-      <LineChart
-        data={chartData}
-        margin={{ top: 10, right: 110, left: 10, bottom: 20 }}
-      >
-        <CartesianGrid 
-          strokeDasharray="2 2" 
-          stroke="#cbd5e1"
-          strokeWidth={1}
-          vertical={true}
-          horizontal={true}
-          opacity={0.8} 
-        />
-        
-        {/* Reference lines untuk setiap level status */}
-        <ReferenceLine 
-          y={waterLevels.bahaya.threshold} 
-          stroke={waterLevels.bahaya.color}
-          strokeDasharray="3 3"
-          label={{ 
-            value: `${waterLevels.bahaya.label} (${waterLevels.bahaya.threshold}cm)`,
-            position: 'right',
-            fill: waterLevels.bahaya.color,
-            fontSize: 12,
-            offset: 10
-          }}
-        />
-        <ReferenceLine 
-          y={waterLevels.siaga.threshold}
-          stroke={waterLevels.siaga.color}
-          strokeDasharray="3 3"
-          label={{ 
-            value: `${waterLevels.siaga.label} (${waterLevels.siaga.threshold}cm)`,
-            position: 'right',
-            fill: waterLevels.siaga.color,
-            fontSize: 12,
-            offset: 10
-          }}
-        />
-        <ReferenceLine 
-          y={waterLevels.waspada.threshold}
-          stroke={waterLevels.waspada.color}
-          strokeDasharray="3 3"
-          label={{ 
-            value: `${waterLevels.waspada.label} (${waterLevels.waspada.threshold}cm)`,
-            position: 'right',
-            fill: waterLevels.waspada.color,
-            fontSize: 12,
-            offset: 10
-          }}
-        />
-        <ReferenceLine 
-          y={waterLevels.normal.threshold}
-          stroke={waterLevels.normal.color}
-          strokeDasharray="3 3"
-          label={{ 
-            value: `${waterLevels.normal.label} (${waterLevels.normal.threshold}cm)`,
-            position: 'right',
-            fill: waterLevels.normal.color,
-            fontSize: 12,
-            offset: 10
-          }}
-        />
-        
-        <XAxis
-          dataKey="formattedTime"
-          stroke="#94a3b8"
-          fontSize={11}
-          tickLine={false}
-          axisLine={true}
-          tickMargin={12}
-          minTickGap={50}
-          label={{ 
-            value: 'Waktu (WIB)', 
-            position: 'bottom',
-            offset: 0,
-            style: { 
-              fontSize: '12px',
-              fill: '#64748b',
-              fontFamily: '"Inter", system-ui, sans-serif'
-            }
-          }}
-          style={{
-            fontSize: '10px',
-            fontFamily: '"Inter", system-ui, sans-serif'
-          }}
-        />
-        
-        <YAxis
-          domain={yDomain}
-          tickCount={8}
-          tickFormatter={(value) => `${value}`}
-          stroke="#94a3b8"
-          fontSize={11}
-          tickLine={false}
-          axisLine={true}
-          width={50}
-          label={{ 
-            value: 'Ketinggian Air (cm)', 
-            angle: -90, 
-            position: 'insideLeft',
-            offset: 0,
-            style: { 
-              fontSize: '12px',
-              fill: '#64748b',
-              fontFamily: '"Inter", system-ui, sans-serif'
-            }
-          }}
-          style={{
-            fontSize: '10px',
-            fontFamily: '"Inter", system-ui, sans-serif'
-          }}
-        />
-        
-        <Tooltip
-          formatter={(value: number, name: string) => {
-            const formattedValue = Number(value).toFixed(1);
-            if (name === 'value') {
-              const status = getWaterStatus(value);
-              return [`${formattedValue} cm (${status.label})`, 'Ketinggian Air'];
-            }
-            if (name === 'sma') return [`${formattedValue} cm`, 'Rata-rata 5 Menit'];
-            return [value, name];
-          }}
-          labelFormatter={(label) => `Pukul ${label}`}
-          contentStyle={{ 
-            backgroundColor: 'white', 
-            border: '1px solid #e2e8f0',
-            borderRadius: '6px',
-            padding: '8px 12px',
-            fontSize: '12px',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-          }}
-          cursor={{ stroke: '#94a3b8', strokeWidth: 1, strokeDasharray: '4 4' }}
-        />
-
-        {/* Area di bawah garis dengan gradient sesuai status */}
-        <defs>
-          <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={waterLevels.waspada.color} stopOpacity={0.1}/>
-            <stop offset="100%" stopColor={waterLevels.normal.color} stopOpacity={0.1}/>
-          </linearGradient>
-        </defs>
-
-        <Area
-          type="monotone"
-          dataKey="value"
-          stroke="none"
-          fill="url(#areaGradient)"
-          isAnimationActive={false}
-        />
-
-        {/* Garis utama (ketinggian air) dengan style putus-putus */}
-        <Line
-          type="monotone"
-          dataKey="value"
-          name="value"
-          stroke="#94a3b8"
-          strokeWidth={1.5}
-          strokeDasharray="5 5"
-          dot={false}
-          isAnimationActive={false}
-          connectNulls
-        />
-
-        {/* Garis rata-rata bergerak dengan style solid dan tebal */}
-        <Line
-          type="monotone"
-          dataKey="sma"
-          name="sma"
-          stroke={waterLevels.normal.color}
-          strokeWidth={2.5}
-          dot={(props) => {
-            if (!props?.payload?.value) return null;
-            // Tetap menggunakan value (bukan sma) untuk menentukan status
-            const status = getWaterStatus(props.payload.value);
-            return (
-              <circle
-                cx={props.cx}
-                cy={props.cy}
-                r={3}
-                fill={status.color}
-                stroke="white"
+    <div className="space-y-2">
+      {title && <h3 className="font-semibold">{title}</h3>}
+      {description && <p className="text-sm text-muted-foreground">{description}</p>}
+      <div className={`h-[300px] ${isMobile ? 'overflow-x-auto' : ''}`}>
+        <div className={isMobile ? 'min-w-[800px] h-full' : 'h-full'}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart
+              data={chartData}
+              margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+            >
+              <CartesianGrid 
+                strokeDasharray="2 2" 
+                stroke="#cbd5e1"
                 strokeWidth={1}
+                vertical={true}
+                horizontal={true}
+                opacity={0.8} 
               />
-            );
-          }}
-          activeDot={(props) => {
-            if (!props?.payload?.value) return null;
-            // Tetap menggunakan value (bukan sma) untuk menentukan status
-            const status = getWaterStatus(props.payload.value);
-            return (
-              <circle
-                cx={props.cx}
-                cy={props.cy}
-                r={5}
-                fill="white"
-                stroke={status.color}
-                strokeWidth={2}
+              
+              {/* Reference lines untuk setiap level status */}
+              <ReferenceLine 
+                y={waterLevels.bahaya.threshold} 
+                stroke={waterLevels.bahaya.color}
+                strokeDasharray="3 3"
+                label={{ 
+                  value: `${waterLevels.bahaya.label} (${waterLevels.bahaya.threshold}cm)`,
+                  position: 'right',
+                  fill: waterLevels.bahaya.color,
+                  fontSize: 12,
+                  offset: 10
+                }}
               />
-            );
-          }}
-          isAnimationActive={false}
-        />
+              <ReferenceLine 
+                y={waterLevels.siaga.threshold}
+                stroke={waterLevels.siaga.color}
+                strokeDasharray="3 3"
+                label={{ 
+                  value: `${waterLevels.siaga.label} (${waterLevels.siaga.threshold}cm)`,
+                  position: 'right',
+                  fill: waterLevels.siaga.color,
+                  fontSize: 12,
+                  offset: 10
+                }}
+              />
+              <ReferenceLine 
+                y={waterLevels.waspada.threshold}
+                stroke={waterLevels.waspada.color}
+                strokeDasharray="3 3"
+                label={{ 
+                  value: `${waterLevels.waspada.label} (${waterLevels.waspada.threshold}cm)`,
+                  position: 'right',
+                  fill: waterLevels.waspada.color,
+                  fontSize: 12,
+                  offset: 10
+                }}
+              />
+              <ReferenceLine 
+                y={waterLevels.normal.threshold}
+                stroke={waterLevels.normal.color}
+                strokeDasharray="3 3"
+                label={{ 
+                  value: `${waterLevels.normal.label} (${waterLevels.normal.threshold}cm)`,
+                  position: 'right',
+                  fill: waterLevels.normal.color,
+                  fontSize: 12,
+                  offset: 10
+                }}
+              />
+              
+              <XAxis
+                dataKey="formattedTime"
+                stroke="#94a3b8"
+                fontSize={11}
+                tickLine={false}
+                axisLine={true}
+                tickMargin={12}
+                minTickGap={50}
+                label={{ 
+                  value: 'Waktu (WIB)', 
+                  position: 'bottom',
+                  offset: 0,
+                  style: { 
+                    fontSize: '12px',
+                    fill: '#64748b',
+                    fontFamily: '"Inter", system-ui, sans-serif'
+                  }
+                }}
+                style={{
+                  fontSize: '10px',
+                  fontFamily: '"Inter", system-ui, sans-serif'
+                }}
+              />
+              
+              <YAxis
+                domain={yDomain}
+                tickCount={8}
+                tickFormatter={(value) => `${value}`}
+                stroke="#94a3b8"
+                fontSize={11}
+                tickLine={false}
+                axisLine={true}
+                width={50}
+                label={{ 
+                  value: 'Ketinggian Air (cm)', 
+                  angle: -90, 
+                  position: 'insideLeft',
+                  offset: 0,
+                  style: { 
+                    fontSize: '12px',
+                    fill: '#64748b',
+                    fontFamily: '"Inter", system-ui, sans-serif'
+                  }
+                }}
+                style={{
+                  fontSize: '10px',
+                  fontFamily: '"Inter", system-ui, sans-serif'
+                }}
+              />
+              
+              <Tooltip
+                formatter={(value: number, name: string) => {
+                  const formattedValue = Number(value).toFixed(1);
+                  if (name === 'value') {
+                    const status = getWaterStatus(value);
+                    return [`${formattedValue} cm (${status.label})`, 'Ketinggian Air'];
+                  }
+                  if (name === 'sma') return [`${formattedValue} cm`, 'Rata-rata 5 Menit'];
+                  return [value, name];
+                }}
+                labelFormatter={(label) => `Pukul ${label}`}
+                contentStyle={{ 
+                  backgroundColor: 'white', 
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '6px',
+                  padding: '8px 12px',
+                  fontSize: '12px',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
+                }}
+                cursor={{ stroke: '#94a3b8', strokeWidth: 1, strokeDasharray: '4 4' }}
+              />
 
-        {/* Status terakhir ditampilkan melalui titik data aktif */}
-      </LineChart>
-    </ResponsiveContainer>
+              {/* Area di bawah garis dengan gradient sesuai status */}
+              <defs>
+                <linearGradient id="areaGradient" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%" stopColor={waterLevels.waspada.color} stopOpacity={0.1}/>
+                  <stop offset="100%" stopColor={waterLevels.normal.color} stopOpacity={0.1}/>
+                </linearGradient>
+              </defs>
+
+              <Area
+                type="monotone"
+                dataKey="value"
+                stroke="none"
+                fill="url(#areaGradient)"
+                isAnimationActive={false}
+              />
+
+              {/* Garis utama (ketinggian air) dengan style putus-putus */}
+              <Line
+                type="monotone"
+                dataKey="value"
+                name="value"
+                stroke="#94a3b8"
+                strokeWidth={1.5}
+                strokeDasharray="5 5"
+                dot={false}
+                isAnimationActive={false}
+                connectNulls
+              />
+
+              {/* Garis rata-rata bergerak dengan style solid dan tebal */}
+              <Line
+                type="monotone"
+                dataKey="sma"
+                name="sma"
+                stroke={waterLevels.normal.color}
+                strokeWidth={2.5}
+                dot={(props) => {
+                  if (!props?.payload?.value) return null;
+                  // Tetap menggunakan value (bukan sma) untuk menentukan status
+                  const status = getWaterStatus(props.payload.value);
+                  return (
+                    <circle
+                      cx={props.cx}
+                      cy={props.cy}
+                      r={3}
+                      fill={status.color}
+                      stroke="white"
+                      strokeWidth={1}
+                    />
+                  );
+                }}
+                activeDot={(props) => {
+                  if (!props?.payload?.value) return null;
+                  // Tetap menggunakan value (bukan sma) untuk menentukan status
+                  const status = getWaterStatus(props.payload.value);
+                  return (
+                    <circle
+                      cx={props.cx}
+                      cy={props.cy}
+                      r={5}
+                      fill="white"
+                      stroke={status.color}
+                      strokeWidth={2}
+                    />
+                  );
+                }}
+                isAnimationActive={false}
+              />
+
+              {/* Status terakhir ditampilkan melalui titik data aktif */}
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
   );
 };
 

@@ -11,12 +11,14 @@ import { format, startOfDay, endOfDay, isSameDay } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { supabase } from "@/lib/supabase";
 import { toUTCDate } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 type Tables = Database['public']['Tables'];
 type SensorStatus = Tables['current_sensor_status']['Row'];
 type WaterReading = Tables['water_level_readings']['Row'];
 
 const Dashboard = () => {
+  const isMobile = useIsMobile();
   const [sensors, setSensors] = useState<SensorStatus[]>([]);
   const [waterReadings, setWaterReadings] = useState<WaterReading[]>([]);
   const [loading, setLoading] = useState(true);
@@ -239,7 +241,7 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-4 p-4">
       {/* Stats Overview */}
       <div className="grid gap-4 md:grid-cols-2">
         <StatCard
@@ -261,29 +263,14 @@ const Dashboard = () => {
         <CardHeader>
           <CardTitle>Grafik Ketinggian Air</CardTitle>
           <CardDescription>
-            Data ketinggian air pada {format(new Date(), "dd MMMM yyyy", { locale: idLocale })}
+            Data ketinggian air {isMobile ? '(geser untuk melihat lebih detail)' : ''} pada {format(currentDate, "EEEE, d MMMM yyyy", { locale: idLocale })}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="h-[400px]">
-            {chartData.length > 0 ? (
-              <ZoomableWaterLevelChart
-                data={chartData}
-                scrollable={true}
-                description={`Data ketinggian air hari ini (${chartData.length} data)`}
-              />
-            ) : (
-              <div className="h-full flex flex-col items-center justify-center text-gray-500">
-                <p className="text-lg mb-2">Belum ada data pembacaan hari ini</p>
-                <p className="text-sm">
-                  Menunggu data dari sensor...
-                </p>
-                <p className="text-xs mt-2 text-gray-400">
-                  Pastikan sensor terhubung dan mengirim data
-                </p>
-              </div>
-            )}
-          </div>
+          <ZoomableWaterLevelChart
+            data={chartData}
+            scrollable={isMobile}
+          />
         </CardContent>
       </Card>
 
