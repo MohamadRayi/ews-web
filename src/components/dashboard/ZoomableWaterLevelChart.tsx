@@ -116,11 +116,11 @@ const ZoomableWaterLevelChart = ({
       {title && <h3 className="font-semibold">{title}</h3>}
       {description && <p className="text-sm text-muted-foreground">{description}</p>}
       <div className={`h-[300px] ${isMobile ? 'overflow-x-auto' : ''}`}>
-        <div className={isMobile ? 'min-w-[800px] h-full' : 'h-full'}>
+        <div className={isMobile ? 'min-w-[1000px] h-full' : 'h-full'}>
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
               data={chartData}
-              margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+              margin={{ top: 10, right: 120, left: 10, bottom: 10 }}
             >
               <CartesianGrid 
                 strokeDasharray="2 2" 
