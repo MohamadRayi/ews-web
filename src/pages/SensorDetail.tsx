@@ -10,6 +10,7 @@ import { Clock, Droplet, Signal, AlertCircle } from "lucide-react";
 import { format, startOfDay, endOfDay, isToday as isTodayDateFns, isSameDay, parseISO } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import { supabase } from "@/lib/supabase";
+import { toUTCDate } from "@/lib/utils";
 
 type Tables = Database['public']['Tables'];
 type SensorStatus = Tables['current_sensor_status']['Row'];
@@ -32,15 +33,22 @@ export default function SensorDetail() {
     if (!id) return;
     try {
       const now = new Date();
-      const dayStartUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
-      const dayEndUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+      const start = toUTCDate(startOfDay(now));
+      const end = toUTCDate(endOfDay(now));
+
+      console.log('[Fetching today readings]', {
+        from: start.toISOString(),
+        to: end.toISOString()
+      });
+
       const { data: readings, error } = await supabase
         .from('water_level_readings')
         .select('*, sensors(*)')
         .eq('sensor_id', id)
-        .gte('reading_time', dayStartUTC.toISOString())
-        .lte('reading_time', dayEndUTC.toISOString())
+        .gte('reading_time', start.toISOString())
+        .lt('reading_time', end.toISOString())
         .order('reading_time', { ascending: true });
+
       if (error) throw error;
       setWaterReadings(readings || []);
     } catch (err) {
@@ -111,15 +119,21 @@ export default function SensorDetail() {
     eventType: 'INSERT' | 'UPDATE' | 'DELETE';
   }) => {
     if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-      const readingDate = new Date(payload.new.reading_time);
-      const now = new Date();
-      const readingDayUTC = Date.UTC(readingDate.getUTCFullYear(), readingDate.getUTCMonth(), readingDate.getUTCDate());
-      const todayUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-      if (readingDayUTC === todayUTC) {
+      const readingDate = startOfDay(new Date(payload.new.reading_time)).getTime();
+      const todayStart = startOfDay(new Date()).getTime();
+      
+      if (readingDate === todayStart) {
         setWaterReadings(prev => {
-          const newReadings = [...prev, payload.new];
-          return newReadings
-            .sort((a, b) => new Date(a.reading_time).getTime() - new Date(b.reading_time).getTime());
+          const newReadings = [...prev];
+          const index = newReadings.findIndex(r => r.id === payload.new.id);
+          if (index >= 0) {
+            newReadings[index] = payload.new;
+          } else {
+            newReadings.push(payload.new);
+          }
+          return newReadings.sort((a, b) => 
+            new Date(a.reading_time).getTime() - new Date(b.reading_time).getTime()
+          );
         });
       }
     }

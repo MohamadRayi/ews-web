@@ -68,21 +68,26 @@ const Dashboard = () => {
     });
 
     if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-      // Check if the new reading is from today using isSameDay
-      const readingDate = new Date(payload.new.reading_time);
-      const now = new Date();
-      const readingDayUTC = Date.UTC(readingDate.getUTCFullYear(), readingDate.getUTCMonth(), readingDate.getUTCDate());
-      const todayUTC = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+      // Check if the new reading is from today using same approach as History page
+      const readingDate = startOfDay(new Date(payload.new.reading_time)).getTime();
+      const todayStart = startOfDay(new Date()).getTime();
       
-      if (readingDayUTC === todayUTC) {
+      if (readingDate === todayStart) {
         setWaterReadings(prev => {
-          const newReadings = [...prev, payload.new];
-          return newReadings
-            .sort((a, b) => new Date(a.reading_time).getTime() - new Date(b.reading_time).getTime());
+          const newReadings = [...prev];
+          const index = newReadings.findIndex(r => r.id === payload.new.id);
+          if (index >= 0) {
+            newReadings[index] = payload.new;
+          } else {
+            newReadings.push(payload.new);
+          }
+          return newReadings.sort((a, b) => 
+            new Date(a.reading_time).getTime() - new Date(b.reading_time).getTime()
+          );
         });
       }
     }
-  }, []);
+  }, [selectedSensorId]);
 
   // Use real-time subscriptions
   useRealtime<SensorStatus>({
@@ -116,21 +121,21 @@ const Dashboard = () => {
 
         setSensors(sensorData || []);
         
-        // Get today's water level readings using UTC
+        // Get today's water level readings using same approach as History page
         const now = new Date();
-        const dayStartUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0));
-        const dayEndUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 23, 59, 59, 999));
+        const start = toUTCDate(startOfDay(now));
+        const end = toUTCDate(endOfDay(now));
 
         console.log('[Fetching today readings]', {
-          from: dayStartUTC.toISOString(),
-          to: dayEndUTC.toISOString()
+          from: start.toISOString(),
+          to: end.toISOString()
         });
 
         const { data: readings, error: readingsError } = await supabase
           .from('water_level_readings')
           .select('id, sensor_id, water_level, status, reading_time, created_at')
-          .gte('reading_time', dayStartUTC.toISOString())
-          .lte('reading_time', dayEndUTC.toISOString())
+          .gte('reading_time', start.toISOString())
+          .lt('reading_time', end.toISOString())
           .order('reading_time', { ascending: true });
 
         if (readingsError) {
