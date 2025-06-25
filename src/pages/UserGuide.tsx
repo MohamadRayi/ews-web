@@ -3,8 +3,8 @@ import { Button } from "@/components/ui/button";
 import { Download } from "lucide-react";
 
 const UserGuide = () => {
-  const pdfUrl = "https://drive.google.com/file/d/1B82qtU4prtSFA7T1qtT16mjKWqblmd1z/preview";
-  const downloadUrl = "https://drive.google.com/uc?export=download&id=1B82qtU4prtSFA7T1qtT16mjKWqblmd1z";
+  const pdfUrl = "https://drive.google.com/file/d/1OSN0_NEaudIEYKRDhKgK9r4eDGTGM1KW/preview";
+  const downloadUrl = "https://drive.google.com/uc?export=download&id=1OSN0_NEaudIEYKRDhKgK9r4eDGTGM1KW";
   
   return (
     <div className="space-y-6">
@@ -74,4 +74,4 @@ const UserGuide = () => {
   );
 };
 
-export default UserGuide; 
+export default UserGuide;
